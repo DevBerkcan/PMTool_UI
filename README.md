@@ -49,6 +49,14 @@ Wichtig:
 
 - immer mit `/api/v1` enden
 - nicht auf `localhost` zeigen
+- Production, Preview und Development in Vercel jeweils sauber setzen
+
+Vercel Import:
+
+- Repository: `DevBerkcan/PMTool_UI`
+- Root Directory: `.`
+- Build Command: `npm run build`
+- Output: automatisch durch Next.js
 
 ## Build pruefen
 
@@ -71,4 +79,3 @@ Demo-Login gegen das aktuelle Backend:
 
 - E-Mail: `berkcan@realcore.de`
 - Passwort: `demo1234`
-
