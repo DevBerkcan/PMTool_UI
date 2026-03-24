@@ -258,3 +258,30 @@ export interface ImportCommitResponse {
   importedRows: number
   summary: string
 }
+
+export interface MeetingExtractedItem {
+  type: string
+  title: string
+  detail: string
+}
+
+export interface MeetingAnalyzeResponse {
+  projectId: string
+  sourceType: string
+  title: string
+  summary: string
+  actions: MeetingExtractedItem[]
+  decisions: MeetingExtractedItem[]
+  risks: MeetingExtractedItem[]
+  knowledge: MeetingExtractedItem[]
+}
+
+export interface MeetingCommitResponse {
+  projectId: string
+  title: string
+  createdTasks: number
+  createdDecisions: number
+  createdRisks: number
+  createdKnowledgeItems: number
+  summary: string
+}

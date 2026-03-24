@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { Activity, AiSuggestion, AiSuggestionFeedback, GovernanceOverview, ImportAnalyzeResponse, ImportCommitResponse, PortfolioSummary, Project, ProjectDecision, ProjectDetail, ProjectDocument, ProjectGovernanceCheck, ProjectKnowledgeItem, ProjectLeadTask, ProjectMilestone, ProjectNote, ProjectTeamMember, Risk, Task, TeamMember, WeeklyStatus } from '@/types'
+import type { Activity, AiSuggestion, AiSuggestionFeedback, GovernanceOverview, ImportAnalyzeResponse, ImportCommitResponse, MeetingAnalyzeResponse, MeetingCommitResponse, PortfolioSummary, Project, ProjectDecision, ProjectDetail, ProjectDocument, ProjectGovernanceCheck, ProjectKnowledgeItem, ProjectLeadTask, ProjectMilestone, ProjectNote, ProjectTeamMember, Risk, Task, TeamMember, WeeklyStatus } from '@/types'
 
 interface LoginResponse {
   token: string
@@ -157,6 +157,8 @@ export const api = {
   imports: {
     analyze: (data: unknown) => post<ImportAnalyzeResponse>('/imports/analyze', data),
     commit: (data: unknown) => post<ImportCommitResponse>('/imports/commit', data),
+    analyzeMeeting: (data: unknown) => post<MeetingAnalyzeResponse>('/imports/meetings/analyze', data),
+    commitMeeting: (data: unknown) => post<MeetingCommitResponse>('/imports/meetings/commit', data),
   },
   reports: {
     exportPdf: (pid: string) =>
