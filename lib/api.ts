@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { Activity, AiSuggestion, AiSuggestionFeedback, GovernanceOverview, ImportAnalyzeResponse, ImportCommitResponse, MeetingAnalyzeResponse, MeetingCommitResponse, PortfolioSummary, Project, ProjectDecision, ProjectDetail, ProjectDocument, ProjectGovernanceCheck, ProjectKnowledgeItem, ProjectLeadTask, ProjectMilestone, ProjectNote, ProjectTeamMember, Risk, Task, TeamMember, WeeklyStatus } from '@/types'
+import type { Activity, AiSuggestion, AiSuggestionFeedback, ApplyAiSuggestionResponse, GovernanceOverview, GraphIntegrationStatus, ImportAnalyzeResponse, ImportCommitResponse, MeetingAnalyzeResponse, MeetingCommitResponse, PortfolioSummary, Project, ProjectDecision, ProjectDetail, ProjectDocument, ProjectGovernanceCheck, ProjectKnowledgeItem, ProjectLeadTask, ProjectMilestone, ProjectNote, ProjectTeamMember, ProjectTeamsLink, Risk, Task, TeamMember, WeeklyStatus } from '@/types'
 
 interface LoginResponse {
   token: string
@@ -100,6 +100,8 @@ export const api = {
       patch<void>(`/projects/${id}/governance-checks/${checkId}/status`, { status }),
     getKnowledgeItems: (id: string) => get<ProjectKnowledgeItem[]>(`/projects/${id}/knowledge-items`),
     createKnowledgeItem: (id: string, data: unknown) => post<ProjectKnowledgeItem>(`/projects/${id}/knowledge-items`, data),
+    getTeamsLink: (id: string) => get<ProjectTeamsLink | null>(`/projects/${id}/teams-link`),
+    upsertTeamsLink: (id: string, data: unknown) => put<ProjectTeamsLink>(`/projects/${id}/teams-link`, data),
   },
   tasks: {
     getByProject: (pid: string) => get<Task[]>(`/projects/${pid}/tasks`),
@@ -153,6 +155,11 @@ export const api = {
       get<AiSuggestionFeedback[]>('/ai/feedback', { params: projectId ? { projectId } : undefined }),
     submitFeedback: (data: unknown) =>
       post<AiSuggestionFeedback>('/ai/feedback', data),
+    applySuggestion: (data: unknown) =>
+      post<ApplyAiSuggestionResponse>('/ai/apply-suggestion', data),
+  },
+  integrations: {
+    getGraphStatus: () => get<GraphIntegrationStatus>('/integrations/graph/status'),
   },
   imports: {
     analyze: (data: unknown) => post<ImportAnalyzeResponse>('/imports/analyze', data),

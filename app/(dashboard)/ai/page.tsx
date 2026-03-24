@@ -24,6 +24,7 @@ export default function AIPage() {
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
   const [selectedProjectId, setSelectedProjectId] = useState('')
+  const [applyTargets, setApplyTargets] = useState<Record<string, 'task' | 'risk' | 'decision'>>({})
   const endRef = useRef<HTMLDivElement>(null)
 
   const { data: portfolio } = useQuery<PortfolioSummary>({
@@ -52,6 +53,19 @@ export default function AIPage() {
     onError: (err: Error) => toast.error(err.message),
   })
 
+  const applyMutation = useMutation({
+    mutationFn: ({ projectId, type, title, recommendation, targetType }: { projectId: string; type: string; title: string; recommendation: string; targetType: 'task' | 'risk' | 'decision' }) =>
+      api.ai.applySuggestion({ projectId, type, title, recommendation, targetType }),
+    onSuccess: async result => {
+      await qc.invalidateQueries({ queryKey: ['ai-suggestions', selectedProjectId] })
+      await qc.invalidateQueries({ queryKey: ['project', result.projectId] })
+      await qc.invalidateQueries({ queryKey: ['project-tasks', result.projectId] })
+      await qc.invalidateQueries({ queryKey: ['project-risks', result.projectId] })
+      toast.success(`Als ${result.targetType} angelegt`)
+    },
+    onError: (err: Error) => toast.error(err.message),
+  })
+
   const selectedProject = useMemo(
     () => portfolio?.projects.find(project => project.id === selectedProjectId),
     [portfolio?.projects, selectedProjectId]
@@ -72,6 +86,12 @@ export default function AIPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const getDefaultTarget = (suggestion: AiSuggestion): 'task' | 'risk' | 'decision' => {
+    if (suggestion.type === 'risk') return 'risk'
+    if (suggestion.type === 'decision') return 'decision'
+    return 'task'
   }
 
   return (
@@ -184,6 +204,29 @@ export default function AIPage() {
                     </button>
                     <button onClick={() => feedbackMutation.mutate({ projectId: suggestion.projectId, type: suggestion.type, title: suggestion.title, status: 'rejected' })} className="btn-ghost px-3 py-2 text-xs">
                       <X className="mr-1 h-3.5 w-3.5" /> Verwerfen
+                    </button>
+                  </div>
+                  <div className="mt-3 flex gap-2">
+                    <select
+                      value={applyTargets[`${suggestion.projectId}-${suggestion.title}`] ?? getDefaultTarget(suggestion)}
+                      onChange={event => setApplyTargets(prev => ({ ...prev, [`${suggestion.projectId}-${suggestion.title}`]: event.target.value as 'task' | 'risk' | 'decision' }))}
+                      className="input h-10 min-w-[140px] text-sm"
+                    >
+                      <option value="task">Als Task</option>
+                      <option value="risk">Als Risiko</option>
+                      <option value="decision">Als Entscheidung</option>
+                    </select>
+                    <button
+                      onClick={() => applyMutation.mutate({
+                        projectId: suggestion.projectId,
+                        type: suggestion.type,
+                        title: suggestion.title,
+                        recommendation: suggestion.recommendation,
+                        targetType: applyTargets[`${suggestion.projectId}-${suggestion.title}`] ?? getDefaultTarget(suggestion),
+                      })}
+                      className="btn-primary px-3 py-2 text-xs"
+                    >
+                      Freigeben und anlegen
                     </button>
                   </div>
                 </motion.div>

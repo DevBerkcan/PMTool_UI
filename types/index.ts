@@ -99,6 +99,17 @@ export interface ProjectKnowledgeItem {
   createdAt: string
 }
 
+export interface ProjectTeamsLink {
+  projectId: string
+  teamName: string
+  channelName: string
+  teamId: string
+  channelId: string
+  tenantDomain: string
+  syncStatus: string
+  lastSyncAt?: string | null
+}
+
 export interface ProjectDetail extends Project {
   deliveryModel: string
   sponsor: string
@@ -119,6 +130,7 @@ export interface ProjectDetail extends Project {
   documents: ProjectDocument[]
   governanceChecks: ProjectGovernanceCheck[]
   knowledgeItems: ProjectKnowledgeItem[]
+  teamsLink?: ProjectTeamsLink | null
 }
 
 export interface Task {
@@ -214,6 +226,14 @@ export interface AiSuggestion {
   feedbackStatus: 'open' | 'accepted' | 'rejected' | 'edited'
 }
 
+export interface ApplyAiSuggestionResponse {
+  projectId: string
+  targetType: 'task' | 'risk' | 'decision'
+  entityId: string
+  entityTitle: string
+  feedbackStatus: 'accepted'
+}
+
 export interface AiSuggestionFeedback {
   id: string
   projectId: string
@@ -223,6 +243,15 @@ export interface AiSuggestionFeedback {
   notes: string
   userName: string
   createdAt: string
+}
+
+export interface GraphIntegrationStatus {
+  isConfigured: boolean
+  clientId: string
+  tenantId: string
+  redirectUri: string
+  scopes: string[]
+  setupHint: string
 }
 
 export interface WeeklyStatus {

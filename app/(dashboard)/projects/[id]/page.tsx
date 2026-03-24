@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -59,6 +59,12 @@ export default function ProjectDetailPage() {
   const [knowledgeTitle, setKnowledgeTitle] = useState('')
   const [knowledgeContent, setKnowledgeContent] = useState('')
   const [knowledgeSource, setKnowledgeSource] = useState('meeting')
+  const [teamsTeamName, setTeamsTeamName] = useState('')
+  const [teamsChannelName, setTeamsChannelName] = useState('')
+  const [teamsTeamId, setTeamsTeamId] = useState('')
+  const [teamsChannelId, setTeamsChannelId] = useState('')
+  const [teamsTenantDomain, setTeamsTenantDomain] = useState('')
+  const [teamsSyncStatus, setTeamsSyncStatus] = useState('planned')
 
   const { data: project, isLoading } = useQuery<ProjectDetail>({
     queryKey: ['project', id],
@@ -193,6 +199,22 @@ export default function ProjectDetailPage() {
     onError: (err: Error) => toast.error(err.message),
   })
 
+  const updateTeamsLink = useMutation({
+    mutationFn: () => api.projects.upsertTeamsLink(id, {
+      teamName: teamsTeamName,
+      channelName: teamsChannelName,
+      teamId: teamsTeamId,
+      channelId: teamsChannelId,
+      tenantDomain: teamsTenantDomain,
+      syncStatus: teamsSyncStatus,
+    }),
+    onSuccess: async () => {
+      await invalidateProject()
+      toast.success('Teams-Link gespeichert')
+    },
+    onError: (err: Error) => toast.error(err.message),
+  })
+
   const toggleLeadTask = useMutation({
     mutationFn: ({ taskId, status }: { taskId: string; status: string }) => api.projects.updateLeadTaskStatus(id, taskId, status),
     onSuccess: invalidateProject,
@@ -212,6 +234,17 @@ export default function ProjectDetailPage() {
     mutationFn: ({ checkId, status }: { checkId: string; status: string }) => api.projects.updateGovernanceCheckStatus(id, checkId, status),
     onSuccess: invalidateProject,
   })
+
+  useEffect(() => {
+    if (!project?.teamsLink) return
+
+    setTeamsTeamName(project.teamsLink.teamName)
+    setTeamsChannelName(project.teamsLink.channelName)
+    setTeamsTeamId(project.teamsLink.teamId)
+    setTeamsChannelId(project.teamsLink.channelId)
+    setTeamsTenantDomain(project.teamsLink.tenantDomain)
+    setTeamsSyncStatus(project.teamsLink.syncStatus)
+  }, [project?.teamsLink])
 
   if (isLoading || !project) {
     return <div className="card p-6 flex items-center justify-center text-gray-400"><Loader2 className="w-4 h-4 animate-spin mr-2" /> Projekt wird geladen...</div>
@@ -472,6 +505,26 @@ export default function ProjectDetailPage() {
                 </a>
               ))}
             </div>
+          </div>
+
+          <div className="card p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold text-white flex items-center gap-2"><Users className="w-4 h-4 text-blue-400" /> Teams / Graph Link</h2>
+              <span className="text-xs text-gray-500">{project.teamsLink?.syncStatus ?? 'not linked'}</span>
+            </div>
+            <div className="grid grid-cols-1 gap-2 mb-3">
+              <input value={teamsTeamName} onChange={event => setTeamsTeamName(event.target.value)} placeholder="Teams Team Name..." className="input text-sm" />
+              <input value={teamsChannelName} onChange={event => setTeamsChannelName(event.target.value)} placeholder="Channel Name..." className="input text-sm" />
+              <input value={teamsTeamId} onChange={event => setTeamsTeamId(event.target.value)} placeholder="Team ID..." className="input text-sm" />
+              <input value={teamsChannelId} onChange={event => setTeamsChannelId(event.target.value)} placeholder="Channel ID..." className="input text-sm" />
+              <input value={teamsTenantDomain} onChange={event => setTeamsTenantDomain(event.target.value)} placeholder="Tenant Domain..." className="input text-sm" />
+              <select value={teamsSyncStatus} onChange={event => setTeamsSyncStatus(event.target.value)} className="input text-sm">
+                <option value="planned">planned</option>
+                <option value="configured">configured</option>
+                <option value="connected">connected</option>
+              </select>
+            </div>
+            <button onClick={() => updateTeamsLink.mutate()} className="btn-primary w-full">Teams-Link speichern</button>
           </div>
 
           <div className="card p-5">

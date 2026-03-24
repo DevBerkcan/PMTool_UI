@@ -1,16 +1,19 @@
 'use client'
 
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { Settings, User, Bell, Shield, Palette, Save, CheckCircle } from 'lucide-react'
+import { Settings, User, Bell, Shield, Palette, Save, CheckCircle, PlugZap } from 'lucide-react'
 import { useAuthStore } from '@/lib/store/authStore'
 import toast from 'react-hot-toast'
+import { api } from '@/lib/api'
 
 const TABS = [
   { id: 'profile', label: 'Profil', icon: User },
   { id: 'notify', label: 'Benachrichtigungen', icon: Bell },
   { id: 'security', label: 'Sicherheit', icon: Shield },
   { id: 'display', label: 'Darstellung', icon: Palette },
+  { id: 'integrations', label: 'Integrationen', icon: PlugZap },
 ]
 
 export default function SettingsPage() {
@@ -31,6 +34,10 @@ export default function SettingsPage() {
     weeklyReport: true,
     emailNotify: true,
     browserNotify: false,
+  })
+  const { data: graphStatus } = useQuery({
+    queryKey: ['graph-status'],
+    queryFn: () => api.integrations.getGraphStatus(),
   })
 
   const handleSave = async () => {
@@ -194,6 +201,36 @@ export default function SettingsPage() {
                   <option>Deutsch</option>
                   <option>English</option>
                 </select>
+              </div>
+            </motion.div>
+          )}
+
+          {tab === 'integrations' && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+              <h2 className="font-semibold text-white mb-4">Microsoft Graph / Teams</h2>
+              <div className={`rounded-xl border p-4 ${graphStatus?.isConfigured ? 'border-emerald-800/50 bg-emerald-950/30' : 'border-amber-800/50 bg-amber-950/20'}`}>
+                <p className="text-sm font-medium text-white">{graphStatus?.isConfigured ? 'Graph ist vorbereitet' : 'Graph ist noch nicht konfiguriert'}</p>
+                <p className="text-xs text-gray-400 mt-1">{graphStatus?.setupHint}</p>
+              </div>
+              <div className="grid md:grid-cols-2 gap-4 text-sm">
+                <div className="rounded-lg bg-gray-800/60 p-4">
+                  <p className="text-xs text-gray-500 mb-1">Client ID</p>
+                  <p className="text-white break-all">{graphStatus?.clientId || 'Nicht gesetzt'}</p>
+                </div>
+                <div className="rounded-lg bg-gray-800/60 p-4">
+                  <p className="text-xs text-gray-500 mb-1">Tenant ID</p>
+                  <p className="text-white break-all">{graphStatus?.tenantId || 'Nicht gesetzt'}</p>
+                </div>
+                <div className="rounded-lg bg-gray-800/60 p-4 md:col-span-2">
+                  <p className="text-xs text-gray-500 mb-1">Redirect URI</p>
+                  <p className="text-white break-all">{graphStatus?.redirectUri || 'Nicht gesetzt'}</p>
+                </div>
+                <div className="rounded-lg bg-gray-800/60 p-4 md:col-span-2">
+                  <p className="text-xs text-gray-500 mb-2">Scopes</p>
+                  <div className="flex flex-wrap gap-2">
+                    {graphStatus?.scopes.map(scope => <span key={scope} className="rounded-full bg-blue-600/10 px-2 py-1 text-xs text-blue-200">{scope}</span>)}
+                  </div>
+                </div>
               </div>
             </motion.div>
           )}
