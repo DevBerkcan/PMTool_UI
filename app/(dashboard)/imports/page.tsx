@@ -1,9 +1,10 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { type ChangeEvent, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { FileSpreadsheet, Loader2, MessagesSquare, Upload, Wand2 } from 'lucide-react'
+import { FileSpreadsheet, Loader2, MessagesSquare, Paperclip, Upload, Wand2 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import * as XLSX from 'xlsx'
 import { api } from '@/lib/api'
 import type { ImportAnalyzeResponse, MeetingAnalyzeResponse, PortfolioSummary } from '@/types'
 
@@ -29,6 +30,7 @@ export default function ImportsPage() {
   const [sourceType, setSourceType] = useState('excel')
   const [title, setTitle] = useState('Standortimport')
   const [content, setContent] = useState(TABULAR_SAMPLE)
+  const [fileName, setFileName] = useState('')
   const [tabularPreview, setTabularPreview] = useState<ImportAnalyzeResponse | null>(null)
   const [meetingPreview, setMeetingPreview] = useState<MeetingAnalyzeResponse | null>(null)
 
@@ -88,8 +90,47 @@ export default function ImportsPage() {
     const meetingMode = nextSourceType === 'teams'
     setTitle(meetingMode ? 'Teams Weekly Sync' : 'Standortimport')
     setContent(meetingMode ? MEETING_SAMPLE : TABULAR_SAMPLE)
+    setFileName('')
     setTabularPreview(null)
     setMeetingPreview(null)
+  }
+
+  const readSpreadsheetFile = async (file: File) => {
+    const buffer = await file.arrayBuffer()
+    const workbook = XLSX.read(buffer, { type: 'array' })
+    const firstSheetName = workbook.SheetNames[0]
+    const sheet = workbook.Sheets[firstSheetName]
+
+    return XLSX.utils.sheet_to_csv(sheet, { FS: ';' }).trim()
+  }
+
+  const readTextFile = async (file: File) => (await file.text()).trim()
+
+  const handleFileChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    try {
+      const lowerName = file.name.toLowerCase()
+      const isSpreadsheet = lowerName.endsWith('.xlsx') || lowerName.endsWith('.xls') || lowerName.endsWith('.csv') || lowerName.endsWith('.tsv')
+      const parsedContent = isMeetingMode
+        ? await readTextFile(file)
+        : isSpreadsheet
+          ? await readSpreadsheetFile(file)
+          : await readTextFile(file)
+
+      setFileName(file.name)
+      setContent(parsedContent)
+      setTitle(file.name.replace(/\.[^.]+$/, ''))
+      setTabularPreview(null)
+      setMeetingPreview(null)
+      toast.success(`Datei geladen: ${file.name}`)
+    } catch (error) {
+      console.error(error)
+      toast.error('Datei konnte nicht gelesen werden.')
+    } finally {
+      event.target.value = ''
+    }
   }
 
   return (
@@ -125,6 +166,29 @@ export default function ImportsPage() {
           <div>
             <label className="text-xs text-gray-400 block mb-1.5">{isMeetingMode ? 'Meeting-Notizen / Transcript' : 'Rohdaten'}</label>
             <textarea value={content} onChange={event => setContent(event.target.value)} className="input min-h-72 py-3 font-mono text-sm" />
+          </div>
+
+          <div className="rounded-lg border border-dashed border-gray-700 bg-gray-900/60 p-4">
+            <div className="flex items-center gap-2 text-sm text-gray-300">
+              <Paperclip className="h-4 w-4 text-blue-400" />
+              Datei laden
+            </div>
+            <p className="mt-1 text-xs text-gray-500">
+              {isMeetingMode
+                ? 'TXT, MD oder exportierte Meeting-Notizen direkt einlesen.'
+                : 'CSV, TSV, XLS oder XLSX einlesen und automatisch in das Importformat uebernehmen.'}
+            </p>
+            <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-lg bg-gray-800 px-3 py-2 text-sm text-white hover:bg-gray-700">
+              <Upload className="h-4 w-4" />
+              Datei auswaehlen
+              <input
+                type="file"
+                className="hidden"
+                accept={isMeetingMode ? '.txt,.md,.csv' : '.csv,.tsv,.xlsx,.xls,.txt'}
+                onChange={handleFileChange}
+              />
+            </label>
+            <p className="mt-2 text-xs text-gray-500">{fileName || 'Noch keine Datei geladen.'}</p>
           </div>
 
           <div className="flex gap-3">
