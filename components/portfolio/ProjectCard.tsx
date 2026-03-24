@@ -10,6 +10,13 @@ const STATUS = {
   red:    { dot: 'bg-red-500',     text: 'text-red-400',     label: 'Kritisch',  bar: 'bg-red-500' },
 }
 
+const CATEGORY_LABEL: Record<Project['category'], string> = {
+  product: 'Produkt',
+  delivery: 'Delivery',
+  rollout: 'Rollout',
+  governance: 'Governance',
+}
+
 function daysUntil(date: string) {
   return Math.ceil((new Date(date).getTime() - Date.now()) / 86400000)
 }
@@ -39,10 +46,17 @@ export function ProjectCard({ project: p, index }: { project: Project; index: nu
           <span className={`w-2.5 h-2.5 rounded-full ${s.dot}`} />
           <span className={`text-xs font-semibold ${s.text}`}>{s.label}</span>
         </div>
-        <span className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full">{p.customer}</span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-400 bg-gray-800 px-2 py-0.5 rounded-full">{CATEGORY_LABEL[p.category]}</span>
+          <span className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded-full">{p.customer}</span>
+        </div>
       </div>
       <h3 className="font-semibold text-white group-hover:text-blue-400 transition-colors mb-1 line-clamp-1">{p.name}</h3>
       <p className="text-xs text-gray-500 mb-4 line-clamp-2">{p.description}</p>
+      <div className="flex items-center justify-between text-xs mb-4">
+        <span className="text-gray-500">Stage</span>
+        <span className="text-gray-300 capitalize">{p.stage.replaceAll('_', ' ')}</span>
+      </div>
       <div className="mb-4">
         <div className="flex justify-between text-xs mb-1.5">
           <span className="text-gray-400">Fortschritt</span>

@@ -14,6 +14,8 @@ import {
   ChevronRight,
   Settings,
   FolderKanban,
+  ShieldCheck,
+  Upload,
 } from 'lucide-react'
 import { useAuthStore } from '@/lib/store/authStore'
 import toast from 'react-hot-toast'
@@ -23,6 +25,8 @@ const NAV = [
   { href: '/analytics', icon: BarChart3, label: 'Analytics', section: 'main' },
   { href: '/resources', icon: Users, label: 'Ressourcen', section: 'main' },
   { href: '/team', icon: FolderKanban, label: 'Team', section: 'main' },
+  { href: '/governance', icon: ShieldCheck, label: 'Governance', section: 'main' },
+  { href: '/imports', icon: Upload, label: 'Import Center', section: 'main' },
   { href: '/ai', icon: Brain, label: 'AI Assistant', section: 'tools' },
   { href: '/risks', icon: AlertTriangle, label: 'Alle Risiken', section: 'tools' },
   { href: '/settings', icon: Settings, label: 'Einstellungen', section: 'tools' },

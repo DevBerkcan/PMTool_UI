@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { Activity, PortfolioSummary, Project, ProjectDetail, ProjectLeadTask, ProjectNote, ProjectTeamMember, Risk, Task, TeamMember } from '@/types'
+import type { Activity, AiSuggestion, AiSuggestionFeedback, GovernanceOverview, ImportAnalyzeResponse, ImportCommitResponse, PortfolioSummary, Project, ProjectDecision, ProjectDetail, ProjectDocument, ProjectGovernanceCheck, ProjectKnowledgeItem, ProjectLeadTask, ProjectMilestone, ProjectNote, ProjectTeamMember, Risk, Task, TeamMember, WeeklyStatus } from '@/types'
 
 interface LoginResponse {
   token: string
@@ -84,6 +84,22 @@ export const api = {
     createLeadTask: (id: string, data: unknown) => post<ProjectLeadTask>(`/projects/${id}/lead-tasks`, data),
     updateLeadTaskStatus: (id: string, taskId: string, status: string) =>
       patch<void>(`/projects/${id}/lead-tasks/${taskId}/status`, { status }),
+    getMilestones: (id: string) => get<ProjectMilestone[]>(`/projects/${id}/milestones`),
+    createMilestone: (id: string, data: unknown) => post<ProjectMilestone>(`/projects/${id}/milestones`, data),
+    updateMilestoneStatus: (id: string, milestoneId: string, status: string) =>
+      patch<void>(`/projects/${id}/milestones/${milestoneId}/status`, { status }),
+    getDecisions: (id: string) => get<ProjectDecision[]>(`/projects/${id}/decisions`),
+    createDecision: (id: string, data: unknown) => post<ProjectDecision>(`/projects/${id}/decisions`, data),
+    updateDecisionStatus: (id: string, decisionId: string, status: string) =>
+      patch<void>(`/projects/${id}/decisions/${decisionId}/status`, { status }),
+    getDocuments: (id: string) => get<ProjectDocument[]>(`/projects/${id}/documents`),
+    createDocument: (id: string, data: unknown) => post<ProjectDocument>(`/projects/${id}/documents`, data),
+    getGovernanceChecks: (id: string) => get<ProjectGovernanceCheck[]>(`/projects/${id}/governance-checks`),
+    createGovernanceCheck: (id: string, data: unknown) => post<ProjectGovernanceCheck>(`/projects/${id}/governance-checks`, data),
+    updateGovernanceCheckStatus: (id: string, checkId: string, status: string) =>
+      patch<void>(`/projects/${id}/governance-checks/${checkId}/status`, { status }),
+    getKnowledgeItems: (id: string) => get<ProjectKnowledgeItem[]>(`/projects/${id}/knowledge-items`),
+    createKnowledgeItem: (id: string, data: unknown) => post<ProjectKnowledgeItem>(`/projects/${id}/knowledge-items`, data),
   },
   tasks: {
     getByProject: (pid: string) => get<Task[]>(`/projects/${pid}/tasks`),
@@ -123,9 +139,24 @@ export const api = {
     markRead: (id: string) => patch(`/notifications/${id}/read`),
     markAllRead: () => patch('/notifications/read-all'),
   },
+  governance: {
+    getOverview: () => get<GovernanceOverview>('/governance/overview'),
+  },
   ai: {
     chat: (message: string, projectId?: string) =>
       post<{ reply: string }>('/ai/chat', { message, projectId }),
+    getSuggestions: (projectId?: string) =>
+      get<AiSuggestion[]>('/ai/suggestions', { params: projectId ? { projectId } : undefined }),
+    getWeeklyStatus: (projectId: string) =>
+      get<WeeklyStatus>(`/ai/weekly-status/${projectId}`),
+    getFeedback: (projectId?: string) =>
+      get<AiSuggestionFeedback[]>('/ai/feedback', { params: projectId ? { projectId } : undefined }),
+    submitFeedback: (data: unknown) =>
+      post<AiSuggestionFeedback>('/ai/feedback', data),
+  },
+  imports: {
+    analyze: (data: unknown) => post<ImportAnalyzeResponse>('/imports/analyze', data),
+    commit: (data: unknown) => post<ImportCommitResponse>('/imports/commit', data),
   },
   reports: {
     exportPdf: (pid: string) =>

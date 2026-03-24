@@ -14,6 +14,13 @@ const FILTERS = [
   { id: 'red', label: 'Kritisch' },
 ]
 
+const CATEGORY_LABEL: Record<string, string> = {
+  product: 'Produkt',
+  delivery: 'Delivery',
+  rollout: 'Rollout',
+  governance: 'Governance',
+}
+
 export default function PortfolioPage() {
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState<'all' | ProjectStatus>('all')
@@ -62,7 +69,7 @@ export default function PortfolioPage() {
               { icon: TrendingUp, label: 'Projekte gesamt', value: summary.totalProjects.toString(), sub: `${summary.greenCount} ok · ${summary.yellowCount} at risk · ${summary.redCount} kritisch`, color: 'text-blue-400', bg: 'bg-blue-500/10' },
               { icon: DollarSign, label: 'Budget gesamt', value: `EUR ${fmt(summary.totalBudget)}`, sub: `EUR ${fmt(summary.spentBudget)} verbraucht`, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
               { icon: CheckSquare, label: 'Offene Tasks', value: summary.totalTasks.toString(), sub: `${summary.overdueTasks} ueberfaellig`, color: 'text-amber-400', bg: 'bg-amber-500/10' },
-              { icon: AlertTriangle, label: 'Kritisch', value: summary.redCount.toString(), sub: 'Sofortige Aufmerksamkeit', color: 'text-red-400', bg: 'bg-red-500/10' },
+              { icon: AlertTriangle, label: 'Governance', value: summary.openGovernanceItems.toString(), sub: `${summary.openDecisions} Entscheidungen offen · ${summary.overdueMilestones} Meilensteine ueberfaellig`, color: 'text-red-400', bg: 'bg-red-500/10' },
             ].map(({ icon: Icon, label, value, sub, color, bg }, index) => (
               <motion.div key={label} initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: index * 0.07 }} className="card p-5">
                 <div className={`w-10 h-10 rounded-xl ${bg} flex items-center justify-center mb-3`}><Icon className={`w-5 h-5 ${color}`} /></div>
@@ -95,6 +102,20 @@ export default function PortfolioPage() {
           </div>
 
           <p className="text-sm text-gray-500">{filtered.length} Projekte gefunden</p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+            {Object.entries(CATEGORY_LABEL).map(([key, label]) => {
+              const count = filtered.filter(project => project.category === key).length
+              const critical = filtered.filter(project => project.category === key && project.status !== 'green').length
+              return (
+                <div key={key} className="card p-4">
+                  <p className="text-xs uppercase tracking-wide text-gray-500">{label}</p>
+                  <p className="text-2xl font-semibold text-white mt-1">{count}</p>
+                  <p className="text-xs text-gray-500 mt-1">{critical} mit Handlungsbedarf</p>
+                </div>
+              )
+            })}
+          </div>
 
           <div className={view === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4' : 'flex flex-col gap-3'}>
             {filtered.map((project, index) => <ProjectCard key={project.id} project={project} index={index} />)}
