@@ -254,6 +254,12 @@ export interface GraphIntegrationStatus {
   setupHint: string
 }
 
+export interface GraphAuthStart {
+  authorizationUrl: string
+  state: string
+  redirectUri: string
+}
+
 export interface WeeklyStatus {
   projectId: string
   projectName: string

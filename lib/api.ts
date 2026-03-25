@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { Activity, AiSuggestion, AiSuggestionFeedback, ApplyAiSuggestionResponse, GovernanceOverview, GraphIntegrationStatus, ImportAnalyzeResponse, ImportCommitResponse, MeetingAnalyzeResponse, MeetingCommitResponse, PortfolioSummary, Project, ProjectDecision, ProjectDetail, ProjectDocument, ProjectGovernanceCheck, ProjectKnowledgeItem, ProjectLeadTask, ProjectMilestone, ProjectNote, ProjectTeamMember, ProjectTeamsLink, Risk, Task, TeamMember, WeeklyStatus } from '@/types'
+import type { Activity, AiSuggestion, AiSuggestionFeedback, ApplyAiSuggestionResponse, GovernanceOverview, GraphAuthStart, GraphIntegrationStatus, ImportAnalyzeResponse, ImportCommitResponse, MeetingAnalyzeResponse, MeetingCommitResponse, PortfolioSummary, Project, ProjectDecision, ProjectDetail, ProjectDocument, ProjectGovernanceCheck, ProjectKnowledgeItem, ProjectLeadTask, ProjectMilestone, ProjectNote, ProjectTeamMember, ProjectTeamsLink, Risk, Task, TeamMember, WeeklyStatus } from '@/types'
 
 interface LoginResponse {
   token: string
@@ -160,6 +160,7 @@ export const api = {
   },
   integrations: {
     getGraphStatus: () => get<GraphIntegrationStatus>('/integrations/graph/status'),
+    getGraphAuthStart: () => get<GraphAuthStart>('/integrations/graph/auth/start'),
   },
   imports: {
     analyze: (data: unknown) => post<ImportAnalyzeResponse>('/imports/analyze', data),

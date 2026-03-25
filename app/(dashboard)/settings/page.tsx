@@ -1,9 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { Settings, User, Bell, Shield, Palette, Save, CheckCircle, PlugZap } from 'lucide-react'
+import { Settings, User, Bell, Shield, Palette, Save, CheckCircle, PlugZap, ExternalLink, Loader2 } from 'lucide-react'
 import { useAuthStore } from '@/lib/store/authStore'
 import toast from 'react-hot-toast'
 import { api } from '@/lib/api'
@@ -38,6 +38,16 @@ export default function SettingsPage() {
   const { data: graphStatus } = useQuery({
     queryKey: ['graph-status'],
     queryFn: () => api.integrations.getGraphStatus(),
+  })
+  const graphAuthStartMutation = useMutation({
+    mutationFn: () => api.integrations.getGraphAuthStart(),
+    onSuccess: data => {
+      window.open(data.authorizationUrl, '_blank', 'noopener,noreferrer')
+      toast.success('Microsoft-Login in neuem Tab geoeffnet')
+    },
+    onError: error => {
+      toast.error(error.message)
+    },
   })
 
   const handleSave = async () => {
@@ -212,6 +222,31 @@ export default function SettingsPage() {
                 <p className="text-sm font-medium text-white">{graphStatus?.isConfigured ? 'Graph ist vorbereitet' : 'Graph ist noch nicht konfiguriert'}</p>
                 <p className="text-xs text-gray-400 mt-1">{graphStatus?.setupHint}</p>
               </div>
+              <div className="rounded-xl bg-gray-800/60 p-4">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-white">OAuth-Startpfad</p>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Nach dem Klick oeffnet sich der Microsoft-Consent-Screen. Die Redirect URI muss in Azure exakt mit diesem Wert hinterlegt sein.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => graphAuthStartMutation.mutate()}
+                    disabled={!graphStatus?.isConfigured || graphAuthStartMutation.isPending}
+                    className="btn-primary disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {graphAuthStartMutation.isPending ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" /> Starte OAuth
+                      </>
+                    ) : (
+                      <>
+                        <ExternalLink className="w-4 h-4" /> Microsoft Login starten
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
               <div className="grid md:grid-cols-2 gap-4 text-sm">
                 <div className="rounded-lg bg-gray-800/60 p-4">
                   <p className="text-xs text-gray-500 mb-1">Client ID</p>
@@ -231,6 +266,12 @@ export default function SettingsPage() {
                     {graphStatus?.scopes.map(scope => <span key={scope} className="rounded-full bg-blue-600/10 px-2 py-1 text-xs text-blue-200">{scope}</span>)}
                   </div>
                 </div>
+              </div>
+              <div className="rounded-xl border border-blue-900/40 bg-blue-950/20 p-4">
+                <p className="text-sm font-medium text-white">Azure App Registration</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Trage in Azure dieselbe Redirect URI ein und hinterlege danach `ClientId`, `TenantId`, `ClientSecret` und `RedirectUri` in der Backend-Konfiguration.
+                </p>
               </div>
             </motion.div>
           )}
