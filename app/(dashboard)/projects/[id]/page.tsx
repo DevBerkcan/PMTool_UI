@@ -65,6 +65,11 @@ export default function ProjectDetailPage() {
   const [teamsChannelId, setTeamsChannelId] = useState('')
   const [teamsTenantDomain, setTeamsTenantDomain] = useState('')
   const [teamsSyncStatus, setTeamsSyncStatus] = useState('planned')
+  const [jiraBoardName, setJiraBoardName] = useState('')
+  const [jiraProjectKey, setJiraProjectKey] = useState('')
+  const [jiraBoardId, setJiraBoardId] = useState('')
+  const [jiraJqlFilter, setJiraJqlFilter] = useState('')
+  const [jiraSyncStatus, setJiraSyncStatus] = useState('planned')
 
   const { data: project, isLoading } = useQuery<ProjectDetail>({
     queryKey: ['project', id],
@@ -87,6 +92,12 @@ export default function ProjectDetailPage() {
     queryKey: ['project-activities', id],
     queryFn: () => api.activities.getByProject(id),
     enabled: !!id,
+  })
+
+  const { data: jiraOverview, isLoading: jiraLoading } = useQuery({
+    queryKey: ['jira-project-tickets', id],
+    queryFn: () => api.jira.getProjectTickets(id),
+    enabled: !!id && !!project?.jiraLink && (!!project.jiraLink.projectKey || !!project.jiraLink.jqlFilter),
   })
 
   const invalidateProject = async () => {
@@ -215,6 +226,22 @@ export default function ProjectDetailPage() {
     onError: (err: Error) => toast.error(err.message),
   })
 
+  const updateJiraLink = useMutation({
+    mutationFn: () => api.projects.upsertJiraLink(id, {
+      boardName: jiraBoardName,
+      projectKey: jiraProjectKey,
+      boardId: jiraBoardId,
+      jqlFilter: jiraJqlFilter,
+      syncStatus: jiraSyncStatus,
+    }),
+    onSuccess: async () => {
+      await invalidateProject()
+      await qc.invalidateQueries({ queryKey: ['jira-project-tickets', id] })
+      toast.success('Jira-Link gespeichert')
+    },
+    onError: (err: Error) => toast.error(err.message),
+  })
+
   const toggleLeadTask = useMutation({
     mutationFn: ({ taskId, status }: { taskId: string; status: string }) => api.projects.updateLeadTaskStatus(id, taskId, status),
     onSuccess: invalidateProject,
@@ -245,6 +272,16 @@ export default function ProjectDetailPage() {
     setTeamsTenantDomain(project.teamsLink.tenantDomain)
     setTeamsSyncStatus(project.teamsLink.syncStatus)
   }, [project?.teamsLink])
+
+  useEffect(() => {
+    if (!project?.jiraLink) return
+
+    setJiraBoardName(project.jiraLink.boardName)
+    setJiraProjectKey(project.jiraLink.projectKey)
+    setJiraBoardId(project.jiraLink.boardId)
+    setJiraJqlFilter(project.jiraLink.jqlFilter)
+    setJiraSyncStatus(project.jiraLink.syncStatus)
+  }, [project?.jiraLink])
 
   if (isLoading || !project) {
     return <div className="card p-6 flex items-center justify-center text-gray-400"><Loader2 className="w-4 h-4 animate-spin mr-2" /> Projekt wird geladen...</div>
@@ -525,6 +562,69 @@ export default function ProjectDetailPage() {
               </select>
             </div>
             <button onClick={() => updateTeamsLink.mutate()} className="btn-primary w-full">Teams-Link speichern</button>
+          </div>
+
+          <div className="card p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold text-white flex items-center gap-2"><ClipboardList className="w-4 h-4 text-blue-400" /> Jira Board</h2>
+              <span className="text-xs text-gray-500">{project.jiraLink?.syncStatus ?? 'not linked'}</span>
+            </div>
+            <div className="grid grid-cols-1 gap-2 mb-3">
+              <input value={jiraBoardName} onChange={event => setJiraBoardName(event.target.value)} placeholder="Board Name..." className="input text-sm" />
+              <input value={jiraProjectKey} onChange={event => setJiraProjectKey(event.target.value.toUpperCase())} placeholder="Project Key, z. B. POS..." className="input text-sm" />
+              <input value={jiraBoardId} onChange={event => setJiraBoardId(event.target.value)} placeholder="Board ID optional..." className="input text-sm" />
+              <textarea value={jiraJqlFilter} onChange={event => setJiraJqlFilter(event.target.value)} placeholder="Optionaler JQL Filter..." className="input min-h-24 py-3 text-sm" />
+              <select value={jiraSyncStatus} onChange={event => setJiraSyncStatus(event.target.value)} className="input text-sm">
+                <option value="planned">planned</option>
+                <option value="configured">configured</option>
+                <option value="connected">connected</option>
+              </select>
+            </div>
+            <button onClick={() => updateJiraLink.mutate()} className="btn-primary w-full mb-4">Jira-Link speichern</button>
+            {jiraLoading ? (
+              <div className="flex items-center gap-2 text-sm text-gray-400">
+                <Loader2 className="w-4 h-4 animate-spin" /> Jira-Tickets werden geladen...
+              </div>
+            ) : jiraOverview ? (
+              <div className="space-y-3">
+                <div className="rounded-lg bg-gray-800/60 p-3">
+                  <p className="text-sm font-medium text-white">{jiraOverview.totalTickets} Tickets im Projekt</p>
+                  <p className="text-xs text-gray-500 mt-1">Nicht zugewiesen: {jiraOverview.unassignedTickets}</p>
+                  <p className="text-xs text-gray-500 mt-1 break-all">{jiraOverview.jql}</p>
+                </div>
+                {jiraOverview.assignees.map(assignee => (
+                  <div key={`${assignee.assigneeName}-${assignee.assigneeEmail}`} className="rounded-lg border border-gray-800 bg-gray-800/50 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-white">{assignee.assigneeName}</p>
+                        <p className="text-xs text-gray-500">{assignee.assigneeEmail || 'Keine Jira-Mail'}</p>
+                      </div>
+                      <span className="rounded-full bg-blue-600/10 px-2 py-1 text-[11px] text-blue-300">{assignee.totalTickets} Tickets</span>
+                    </div>
+                    <div className="mt-3 flex gap-2 text-[11px]">
+                      <span className="rounded-full bg-gray-700 px-2 py-1 text-gray-300">Todo {assignee.todoTickets}</span>
+                      <span className="rounded-full bg-amber-500/10 px-2 py-1 text-amber-300">In Arbeit {assignee.inProgressTickets}</span>
+                      <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-emerald-300">Done {assignee.doneTickets}</span>
+                    </div>
+                    <div className="mt-3 space-y-2">
+                      {assignee.tickets.slice(0, 4).map(ticket => (
+                        <a key={ticket.key} href={ticket.url} target="_blank" rel="noreferrer" className="block rounded-lg bg-gray-900/40 p-3 hover:bg-gray-900/70">
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <p className="text-xs font-medium text-blue-300">{ticket.key}</p>
+                              <p className="text-sm text-white mt-1">{ticket.summary}</p>
+                            </div>
+                            <span className="text-[11px] text-gray-400">{ticket.status}</span>
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-xs text-gray-500">Lege einen Project Key oder JQL an, dann werden die Jira-Tickets je Mitarbeiter geladen.</p>
+            )}
           </div>
 
           <div className="card p-5">

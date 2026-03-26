@@ -110,6 +110,16 @@ export interface ProjectTeamsLink {
   lastSyncAt?: string | null
 }
 
+export interface ProjectJiraLink {
+  projectId: string
+  boardName: string
+  projectKey: string
+  boardId: string
+  jqlFilter: string
+  syncStatus: string
+  lastSyncAt?: string | null
+}
+
 export interface ProjectDetail extends Project {
   deliveryModel: string
   sponsor: string
@@ -131,6 +141,7 @@ export interface ProjectDetail extends Project {
   governanceChecks: ProjectGovernanceCheck[]
   knowledgeItems: ProjectKnowledgeItem[]
   teamsLink?: ProjectTeamsLink | null
+  jiraLink?: ProjectJiraLink | null
 }
 
 export interface Task {
@@ -258,6 +269,50 @@ export interface GraphAuthStart {
   authorizationUrl: string
   state: string
   redirectUri: string
+}
+
+export interface JiraIntegrationStatus {
+  isConfigured: boolean
+  baseUrl: string
+  authMode: string
+  accountEmail: string
+  setupHint: string
+}
+
+export interface JiraTicket {
+  key: string
+  summary: string
+  status: string
+  statusCategory: string
+  priority: string
+  issueType: string
+  assigneeName: string
+  assigneeEmail: string
+  url: string
+  updatedAt?: string | null
+  dueDate?: string | null
+}
+
+export interface JiraAssigneeTickets {
+  assigneeName: string
+  assigneeEmail: string
+  totalTickets: number
+  todoTickets: number
+  inProgressTickets: number
+  doneTickets: number
+  tickets: JiraTicket[]
+}
+
+export interface JiraProjectTickets {
+  projectId: string
+  projectName: string
+  boardName: string
+  projectKey: string
+  jql: string
+  totalTickets: number
+  unassignedTickets: number
+  assignees: JiraAssigneeTickets[]
+  tickets: JiraTicket[]
 }
 
 export interface WeeklyStatus {

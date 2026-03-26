@@ -39,6 +39,10 @@ export default function SettingsPage() {
     queryKey: ['graph-status'],
     queryFn: () => api.integrations.getGraphStatus(),
   })
+  const { data: jiraStatus } = useQuery({
+    queryKey: ['jira-status'],
+    queryFn: () => api.integrations.getJiraStatus(),
+  })
   const graphAuthStartMutation = useMutation({
     mutationFn: () => api.integrations.getGraphAuthStart(),
     onSuccess: data => {
@@ -272,6 +276,24 @@ export default function SettingsPage() {
                 <p className="text-xs text-gray-400 mt-1">
                   Trage in Azure dieselbe Redirect URI ein und hinterlege danach `ClientId`, `TenantId`, `ClientSecret` und `RedirectUri` in der Backend-Konfiguration.
                 </p>
+              </div>
+              <div className={`rounded-xl border p-4 ${jiraStatus?.isConfigured ? 'border-emerald-800/50 bg-emerald-950/30' : 'border-amber-800/50 bg-amber-950/20'}`}>
+                <p className="text-sm font-medium text-white">{jiraStatus?.isConfigured ? 'Jira ist vorbereitet' : 'Jira ist noch nicht konfiguriert'}</p>
+                <p className="text-xs text-gray-400 mt-1">{jiraStatus?.setupHint}</p>
+              </div>
+              <div className="grid md:grid-cols-2 gap-4 text-sm">
+                <div className="rounded-lg bg-gray-800/60 p-4">
+                  <p className="text-xs text-gray-500 mb-1">Base URL</p>
+                  <p className="text-white break-all">{jiraStatus?.baseUrl || 'Nicht gesetzt'}</p>
+                </div>
+                <div className="rounded-lg bg-gray-800/60 p-4">
+                  <p className="text-xs text-gray-500 mb-1">Auth Mode</p>
+                  <p className="text-white break-all">{jiraStatus?.authMode || 'Nicht gesetzt'}</p>
+                </div>
+                <div className="rounded-lg bg-gray-800/60 p-4 md:col-span-2">
+                  <p className="text-xs text-gray-500 mb-1">Jira Account</p>
+                  <p className="text-white break-all">{jiraStatus?.accountEmail || 'Nicht gesetzt'}</p>
+                </div>
               </div>
             </motion.div>
           )}

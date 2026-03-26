@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { Activity, AiSuggestion, AiSuggestionFeedback, ApplyAiSuggestionResponse, GovernanceOverview, GraphAuthStart, GraphIntegrationStatus, ImportAnalyzeResponse, ImportCommitResponse, MeetingAnalyzeResponse, MeetingCommitResponse, PortfolioSummary, Project, ProjectDecision, ProjectDetail, ProjectDocument, ProjectGovernanceCheck, ProjectKnowledgeItem, ProjectLeadTask, ProjectMilestone, ProjectNote, ProjectTeamMember, ProjectTeamsLink, Risk, Task, TeamMember, WeeklyStatus } from '@/types'
+import type { Activity, AiSuggestion, AiSuggestionFeedback, ApplyAiSuggestionResponse, GovernanceOverview, GraphAuthStart, GraphIntegrationStatus, ImportAnalyzeResponse, ImportCommitResponse, JiraIntegrationStatus, JiraProjectTickets, MeetingAnalyzeResponse, MeetingCommitResponse, PortfolioSummary, Project, ProjectDecision, ProjectDetail, ProjectDocument, ProjectGovernanceCheck, ProjectJiraLink, ProjectKnowledgeItem, ProjectLeadTask, ProjectMilestone, ProjectNote, ProjectTeamMember, ProjectTeamsLink, Risk, Task, TeamMember, WeeklyStatus } from '@/types'
 
 interface LoginResponse {
   token: string
@@ -102,6 +102,8 @@ export const api = {
     createKnowledgeItem: (id: string, data: unknown) => post<ProjectKnowledgeItem>(`/projects/${id}/knowledge-items`, data),
     getTeamsLink: (id: string) => get<ProjectTeamsLink | null>(`/projects/${id}/teams-link`),
     upsertTeamsLink: (id: string, data: unknown) => put<ProjectTeamsLink>(`/projects/${id}/teams-link`, data),
+    getJiraLink: (id: string) => get<ProjectJiraLink | null>(`/projects/${id}/jira-link`),
+    upsertJiraLink: (id: string, data: unknown) => put<ProjectJiraLink>(`/projects/${id}/jira-link`, data),
   },
   tasks: {
     getByProject: (pid: string) => get<Task[]>(`/projects/${pid}/tasks`),
@@ -161,6 +163,11 @@ export const api = {
   integrations: {
     getGraphStatus: () => get<GraphIntegrationStatus>('/integrations/graph/status'),
     getGraphAuthStart: () => get<GraphAuthStart>('/integrations/graph/auth/start'),
+    getJiraStatus: () => get<JiraIntegrationStatus>('/integrations/jira/status'),
+  },
+  jira: {
+    getProjectTickets: (projectId: string, maxResults = 50) =>
+      get<JiraProjectTickets>(`/jira/projects/${projectId}/tickets`, { params: { maxResults } }),
   },
   imports: {
     analyze: (data: unknown) => post<ImportAnalyzeResponse>('/imports/analyze', data),
