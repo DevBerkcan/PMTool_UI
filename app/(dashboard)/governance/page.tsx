@@ -2,7 +2,7 @@
 
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
-import { ShieldCheck, Loader2, AlertTriangle, Scale, CalendarClock } from 'lucide-react'
+import { ShieldCheck, Loader2, AlertTriangle, Scale, CalendarClock, GitMerge, Stamp } from 'lucide-react'
 import { api } from '@/lib/api'
 import type { GovernanceOverview } from '@/types'
 
@@ -35,6 +35,9 @@ export default function GovernancePage() {
           { label: 'Governance Checks offen', value: data.openGovernanceChecks, icon: ShieldCheck, color: 'text-blue-400', bg: 'bg-blue-500/10' },
           { label: 'Entscheidungen offen', value: data.openDecisions, icon: Scale, color: 'text-amber-400', bg: 'bg-amber-500/10' },
           { label: 'Meilensteine ueberfaellig', value: data.overdueMilestones, icon: CalendarClock, color: 'text-red-400', bg: 'bg-red-500/10' },
+          { label: 'Stage Gates offen', value: data.openStageGates, icon: GitMerge, color: 'text-violet-400', bg: 'bg-violet-500/10' },
+          { label: 'Stage Gates blockiert', value: data.blockedStageGates, icon: AlertTriangle, color: 'text-red-400', bg: 'bg-red-500/10' },
+          { label: 'Freigaben ausstehend', value: data.pendingApprovals, icon: Stamp, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
         ].map(item => (
           <div key={item.label} className="card p-5">
             <div className={`w-10 h-10 rounded-xl ${item.bg} flex items-center justify-center mb-3`}><item.icon className={`w-5 h-5 ${item.color}`} /></div>
@@ -68,7 +71,7 @@ export default function GovernancePage() {
                   </div>
                 )}
               </div>
-              <div className="grid md:grid-cols-3 gap-3 mt-4 text-sm">
+              <div className="grid md:grid-cols-3 xl:grid-cols-6 gap-3 mt-4 text-sm">
                 <div className="rounded-lg bg-gray-800/70 px-3 py-2">
                   <p className="text-xs text-gray-500">Checks offen</p>
                   <p className="text-white font-semibold">{project.openGovernanceChecks}</p>
@@ -80,6 +83,18 @@ export default function GovernancePage() {
                 <div className="rounded-lg bg-gray-800/70 px-3 py-2">
                   <p className="text-xs text-gray-500">Meilensteine ueberfaellig</p>
                   <p className="text-white font-semibold">{project.overdueMilestones}</p>
+                </div>
+                <div className="rounded-lg bg-gray-800/70 px-3 py-2">
+                  <p className="text-xs text-gray-500">Stage Gates offen</p>
+                  <p className="text-white font-semibold">{project.openStageGates}</p>
+                </div>
+                <div className="rounded-lg bg-gray-800/70 px-3 py-2">
+                  <p className="text-xs text-gray-500">Stage Gates blockiert</p>
+                  <p className="text-white font-semibold">{project.blockedStageGates}</p>
+                </div>
+                <div className="rounded-lg bg-gray-800/70 px-3 py-2">
+                  <p className="text-xs text-gray-500">Freigaben offen</p>
+                  <p className="text-white font-semibold">{project.pendingApprovals}</p>
                 </div>
               </div>
             </Link>

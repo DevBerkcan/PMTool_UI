@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { AlertCircle, Eye, EyeOff, Loader2, Lock, Mail, Zap } from 'lucide-react'
+import { AlertCircle, Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck, Zap } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { api } from '@/lib/api'
+import { getEntraAccount, getEntraIdToken, handleEntraRedirect, isEntraConfigured, startEntraLogin } from '@/lib/entra/client'
 import { useAuthStore } from '@/lib/store/authStore'
 
 export default function LoginPage() {
@@ -13,9 +14,57 @@ export default function LoginPage() {
   const [password, setPassword] = useState('demo1234')
   const [showPw, setShowPw] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [entraLoading, setEntraLoading] = useState(false)
   const [error, setError] = useState('')
-  const { login } = useAuthStore()
+  const { login, isAuthenticated } = useAuthStore()
   const router = useRouter()
+
+  useEffect(() => {
+    if (!isEntraConfigured || isAuthenticated) return
+
+    let cancelled = false
+
+    const syncEntraLogin = async () => {
+      try {
+        setEntraLoading(true)
+        await handleEntraRedirect()
+
+        const account = await getEntraAccount()
+        if (!account || cancelled) return
+
+        const idToken = await getEntraIdToken()
+        if (!idToken || cancelled) return
+
+        const res: any = await api.auth.exchangeEntraToken(idToken)
+        if (cancelled) return
+
+        login(res.token, {
+          id: res.userId,
+          name: res.userName,
+          email: res.email,
+          role: res.role,
+          tenantId: res.tenantId,
+        }, 'entra')
+
+        toast.success(`Microsoft-Login aktiv: ${res.userName}`)
+        router.replace('/')
+      } catch (err: any) {
+        if (!cancelled) {
+          setError(err.message || 'Microsoft-Login fehlgeschlagen')
+        }
+      } finally {
+        if (!cancelled) {
+          setEntraLoading(false)
+        }
+      }
+    }
+
+    syncEntraLogin()
+
+    return () => {
+      cancelled = true
+    }
+  }, [isAuthenticated, login, router])
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault()
@@ -31,7 +80,7 @@ export default function LoginPage() {
         email: res.email,
         role: res.role,
         tenantId: res.tenantId,
-      })
+      }, 'local')
 
       toast.success(`Willkommen, ${res.userName}!`)
       router.push('/')
@@ -42,8 +91,20 @@ export default function LoginPage() {
     }
   }
 
+  const handleEntraLogin = async () => {
+    setError('')
+    setEntraLoading(true)
+
+    try {
+      await startEntraLogin()
+    } catch (err: any) {
+      setError(err.message || 'Microsoft-Login konnte nicht gestartet werden')
+      setEntraLoading(false)
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-gray-950 flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-950 flex items-center justify-center p-4">
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
@@ -54,12 +115,12 @@ export default function LoginPage() {
           <div className="w-14 h-14 rounded-2xl bg-blue-600 flex items-center justify-center mx-auto mb-4">
             <Zap className="w-7 h-7 text-white" />
           </div>
-          <h1 className="text-2xl font-bold text-white">realcore PM</h1>
-          <p className="text-gray-400 text-sm mt-1">Projektmanagement · RealCore</p>
+          <h1 className="text-2xl font-bold text-gray-950 dark:text-white">realcore PM</h1>
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Projektmanagement · RealCore</p>
         </div>
 
         <div className="card p-8">
-          <h2 className="text-lg font-semibold text-white mb-6">Anmelden</h2>
+          <h2 className="text-lg font-semibold text-gray-950 dark:text-white mb-6">Anmelden</h2>
 
           {error && (
             <motion.div
@@ -72,9 +133,28 @@ export default function LoginPage() {
             </motion.div>
           )}
 
+          {isEntraConfigured && (
+            <>
+              <button
+                type="button"
+                onClick={handleEntraLogin}
+                disabled={entraLoading || loading}
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 px-4 py-3 text-sm font-medium text-slate-900 dark:text-slate-100 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
+              >
+                {entraLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+                Mit Entra ID anmelden
+              </button>
+              <div className="my-5 flex items-center gap-3 text-xs uppercase tracking-[0.18em] text-gray-400">
+                <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
+                Oder lokal anmelden
+                <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
+              </div>
+            </>
+          )}
+
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="text-xs font-medium text-gray-400 mb-1.5 block">E-Mail</label>
+              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 block">E-Mail</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <input
@@ -89,7 +169,7 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="text-xs font-medium text-gray-400 mb-1.5 block">Passwort</label>
+              <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5 block">Passwort</label>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
                 <input
@@ -103,19 +183,19 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPw(!showPw)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-950 dark:hover:text-white transition-colors"
                 >
                   {showPw ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
             </div>
 
-            <button type="submit" disabled={loading} className="btn-primary w-full justify-center py-2.5 mt-2">
+            <button type="submit" disabled={loading || entraLoading} className="btn-primary w-full justify-center py-2.5 mt-2">
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Anmelden'}
             </button>
           </form>
 
-          <div className="mt-6 p-3 bg-gray-800/50 rounded-lg">
+          <div className="mt-6 p-3 bg-gray-100 dark:bg-gray-800/50 rounded-lg">
             <p className="text-xs text-gray-500 text-center">Demo-Zugangsdaten</p>
             <p className="text-xs text-gray-400 text-center mt-1">berkcan@realcore.de · demo1234</p>
           </div>

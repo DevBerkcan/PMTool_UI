@@ -2,6 +2,7 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Toaster } from 'react-hot-toast'
+import { ThemeProvider } from 'next-themes'
 import { AuthGate } from '@/components/providers/AuthGate'
 
 export function Providers({ children }: { children: React.ReactNode }) {
@@ -10,7 +11,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
   }))
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthGate>{children}</AuthGate>
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        <AuthGate>{children}</AuthGate>
+      </ThemeProvider>
       <Toaster position="top-right" toastOptions={{
         style: { background: '#1f2937', color: '#f9fafb', border: '1px solid #374151' },
       }} />

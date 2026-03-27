@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { Activity, AiSuggestion, AiSuggestionFeedback, ApplyAiSuggestionResponse, GovernanceOverview, GraphAuthStart, GraphIntegrationStatus, ImportAnalyzeResponse, ImportCommitResponse, JiraIntegrationStatus, JiraProjectTickets, MeetingAnalyzeResponse, MeetingCommitResponse, PortfolioSummary, Project, ProjectDecision, ProjectDetail, ProjectDocument, ProjectGovernanceCheck, ProjectJiraLink, ProjectKnowledgeItem, ProjectLeadTask, ProjectMilestone, ProjectNote, ProjectTeamMember, ProjectTeamsLink, Risk, Task, TeamMember, WeeklyStatus } from '@/types'
+import type { AccessMatrix, Activity, AiLearningSummary, AiSuggestion, AiSuggestionFeedback, ApplyAiSuggestionResponse, AuditEntry, GovernanceOverview, GraphAuthStart, GraphIntegrationStatus, ImportAnalyzeResponse, ImportCommitResponse, JiraIntegrationStatus, JiraProjectTickets, MeetingAnalyzeResponse, MeetingCommitResponse, PortfolioBriefing, PortfolioEscalationOverview, PortfolioSummary, Project, ProjectAiAnswer, ProjectApproval, ProjectDecision, ProjectDetail, ProjectDocument, ProjectForecast, ProjectForecastSnapshot, ProjectGovernanceCheck, ProjectJiraLink, ProjectKnowledgeHub, ProjectKnowledgeItem, ProjectLeadTask, ProjectMilestone, ProjectNote, ProjectStageGate, ProjectStageGateCheck, ProjectTeamMember, ProjectTeamsLink, Risk, RiskSignal, Task, TeamMember, WeeklyStatus } from '@/types'
 
 interface LoginResponse {
   token: string
@@ -9,6 +9,8 @@ interface LoginResponse {
   userId: string
   tenantId: string
 }
+
+interface EntraExchangeResponse extends LoginResponse {}
 
 const getBaseUrl = () => {
   const envUrl = process.env.NEXT_PUBLIC_API_URL?.trim()
@@ -66,11 +68,16 @@ export const api = {
   auth: {
     login: (email: string, password: string) =>
       post<LoginResponse>('/auth/login', { email, password }),
+    exchangeEntraToken: (idToken: string) =>
+      post<EntraExchangeResponse>('/auth/entra/exchange', { idToken }),
+    getAccessMatrix: () => get<AccessMatrix>('/auth/access-matrix'),
   },
   projects: {
     getPortfolio: () => get<PortfolioSummary>('/projects/portfolio'),
     getAll: (params?: Record<string, string>) => get<Project[]>('/projects', { params }),
     getById: (id: string) => get<ProjectDetail>(`/projects/${id}`),
+    getForecast: (id: string) => get<ProjectForecast>(`/projects/${id}/forecast`),
+    getForecastSnapshots: (id: string) => get<ProjectForecastSnapshot[]>(`/projects/${id}/forecast/snapshots`),
     create: (data: unknown) => post('/projects', data),
     update: (id: string, data: unknown) => put(`/projects/${id}`, data),
     delete: (id: string) => del(`/projects/${id}`),
@@ -98,8 +105,23 @@ export const api = {
     createGovernanceCheck: (id: string, data: unknown) => post<ProjectGovernanceCheck>(`/projects/${id}/governance-checks`, data),
     updateGovernanceCheckStatus: (id: string, checkId: string, status: string) =>
       patch<void>(`/projects/${id}/governance-checks/${checkId}/status`, { status }),
+    getStageGates: (id: string) => get<ProjectStageGate[]>(`/projects/${id}/stage-gates`),
+    createStageGate: (id: string, data: unknown) => post<ProjectStageGate>(`/projects/${id}/stage-gates`, data),
+    updateStageGateStatus: (id: string, gateId: string, status: string) =>
+      patch<void>(`/projects/${id}/stage-gates/${gateId}/status`, { status }),
+    createStageGateCheck: (id: string, gateId: string, data: unknown) =>
+      post<ProjectStageGateCheck>(`/projects/${id}/stage-gates/${gateId}/checks`, data),
+    updateStageGateCheckStatus: (id: string, gateId: string, checkId: string, status: string) =>
+      patch<void>(`/projects/${id}/stage-gates/${gateId}/checks/${checkId}/status`, { status }),
+    getApprovals: (id: string) => get<ProjectApproval[]>(`/projects/${id}/approvals`),
+    createApproval: (id: string, data: unknown) => post<ProjectApproval>(`/projects/${id}/approvals`, data),
+    updateApprovalStatus: (id: string, approvalId: string, status: string, decisionNotes = '') =>
+      patch<void>(`/projects/${id}/approvals/${approvalId}/status`, { status, decisionNotes }),
     getKnowledgeItems: (id: string) => get<ProjectKnowledgeItem[]>(`/projects/${id}/knowledge-items`),
+    getKnowledgeHub: (id: string, params?: { query?: string; sourceType?: string; minImportance?: number; limit?: number }) =>
+      get<ProjectKnowledgeHub>(`/projects/${id}/knowledge-hub`, { params }),
     createKnowledgeItem: (id: string, data: unknown) => post<ProjectKnowledgeItem>(`/projects/${id}/knowledge-items`, data),
+    uploadKnowledgeDocument: (id: string, data: unknown) => post<ProjectKnowledgeItem>(`/projects/${id}/knowledge-documents`, data),
     getTeamsLink: (id: string) => get<ProjectTeamsLink | null>(`/projects/${id}/teams-link`),
     upsertTeamsLink: (id: string, data: unknown) => put<ProjectTeamsLink>(`/projects/${id}/teams-link`, data),
     getJiraLink: (id: string) => get<ProjectJiraLink | null>(`/projects/${id}/jira-link`),
@@ -137,6 +159,9 @@ export const api = {
   activities: {
     getAll: () => get<Activity[]>('/activities'),
     getByProject: (pid: string) => get<Activity[]>(`/projects/${pid}/activities`),
+    getAudit: (params?: { entityType?: string; projectId?: string; userRole?: string; changeType?: string; dateFrom?: string; dateTo?: string }) =>
+      get<AuditEntry[]>('/audit', { params }),
+    getProjectAudit: (pid: string) => get<AuditEntry[]>(`/projects/${pid}/audit`),
   },
   notifications: {
     getAll: () => get('/notifications'),
@@ -145,6 +170,7 @@ export const api = {
   },
   governance: {
     getOverview: () => get<GovernanceOverview>('/governance/overview'),
+    getEscalations: () => get<PortfolioEscalationOverview>('/governance/escalations'),
   },
   ai: {
     chat: (message: string, projectId?: string) =>
@@ -153,12 +179,20 @@ export const api = {
       get<AiSuggestion[]>('/ai/suggestions', { params: projectId ? { projectId } : undefined }),
     getWeeklyStatus: (projectId: string) =>
       get<WeeklyStatus>(`/ai/weekly-status/${projectId}`),
+    getPortfolioBriefing: () =>
+      get<PortfolioBriefing>('/ai/portfolio-briefing'),
+    getRiskSignals: (projectId?: string) =>
+      get<RiskSignal[]>('/ai/risk-signals', { params: projectId ? { projectId } : undefined }),
+    getLearningSummary: () =>
+      get<AiLearningSummary>('/ai/learning-summary'),
     getFeedback: (projectId?: string) =>
       get<AiSuggestionFeedback[]>('/ai/feedback', { params: projectId ? { projectId } : undefined }),
     submitFeedback: (data: unknown) =>
       post<AiSuggestionFeedback>('/ai/feedback', data),
     applySuggestion: (data: unknown) =>
       post<ApplyAiSuggestionResponse>('/ai/apply-suggestion', data),
+    askProjectQuestion: (projectId: string, question: string) =>
+      post<ProjectAiAnswer>('/ai/project-question', { projectId, question }),
   },
   integrations: {
     getGraphStatus: () => get<GraphIntegrationStatus>('/integrations/graph/status'),
@@ -176,9 +210,13 @@ export const api = {
     commitMeeting: (data: unknown) => post<MeetingCommitResponse>('/imports/meetings/commit', data),
   },
   reports: {
-    exportPdf: (pid: string) =>
-      get<Blob>(`/reports/${pid}/pdf`, { responseType: 'blob' }),
-    portfolioReport: () =>
-      get<Blob>('/reports/portfolio', { responseType: 'blob' }),
+    exportAuditCsv: (params?: { entityType?: string; projectId?: string; userRole?: string; changeType?: string; dateFrom?: string; dateTo?: string }) =>
+      get<Blob>('/reports/audit.csv', { params, responseType: 'blob' }),
+    exportAuditPdf: (params?: { entityType?: string; projectId?: string; userRole?: string; changeType?: string; dateFrom?: string; dateTo?: string }) =>
+      get<Blob>('/reports/audit.pdf', { params, responseType: 'blob' }),
+    exportForecastCsv: (pid: string) =>
+      get<Blob>(`/reports/projects/${pid}/forecast.csv`, { responseType: 'blob' }),
+    exportForecastPdf: (pid: string) =>
+      get<Blob>(`/reports/projects/${pid}/forecast.pdf`, { responseType: 'blob' }),
   },
 }

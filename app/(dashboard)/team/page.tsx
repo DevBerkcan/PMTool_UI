@@ -5,27 +5,26 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Users, Plus, Mail, Trash2, Shield, X, Loader2 } from 'lucide-react'
 import { api } from '@/lib/api'
+import { useAccessMatrix } from '@/lib/hooks/useAccessMatrix'
 import toast from 'react-hot-toast'
-import type { TeamMember } from '@/types'
-
-const ROLES = [
-  'Admin',
-  'Projektleiter',
-  'Entwickler',
-  'QA Engineer',
-  'Business Analyst',
-  'Designer',
-  'Trainer',
-]
+import type { AuditEntry, TeamMember } from '@/types'
 
 export default function TeamPage() {
+  const { can, availableRoles } = useAccessMatrix()
+  const canManageTeam = can('manageTeam')
   const qc = useQueryClient()
   const [showInvite, setShowInvite] = useState(false)
   const [form, setForm] = useState({ name: '', email: '', role: 'Entwickler' })
+  const [draftRoles, setDraftRoles] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(false)
   const { data: team = [], isLoading } = useQuery<TeamMember[]>({
     queryKey: ['team'],
     queryFn: () => api.team.getAll(),
+  })
+  const { data: roleAudit = [] } = useQuery<AuditEntry[]>({
+    queryKey: ['audit-user-roles'],
+    queryFn: () => api.activities.getAudit({ entityType: 'UserRole' }),
+    enabled: canManageTeam,
   })
 
   const handleInvite = async (e: React.FormEvent) => {
@@ -34,6 +33,7 @@ export default function TeamPage() {
     try {
       await api.team.invite(form)
       await qc.invalidateQueries({ queryKey: ['team'] })
+      await qc.invalidateQueries({ queryKey: ['audit-user-roles'] })
       setForm({ name: '', email: '', role: 'Entwickler' })
       setShowInvite(false)
       toast.success(`${form.name} wurde eingeladen!`)
@@ -53,9 +53,11 @@ export default function TeamPage() {
           </h1>
           <p className="text-gray-400 text-sm mt-0.5">{team.length} Mitglieder</p>
         </div>
-        <button onClick={() => setShowInvite(true)} className="btn-primary">
-          <Plus className="w-4 h-4" /> Mitglied einladen
-        </button>
+        {canManageTeam && (
+          <button onClick={() => setShowInvite(true)} className="btn-primary">
+            <Plus className="w-4 h-4" /> Mitglied einladen
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-3 gap-4">
@@ -133,28 +135,81 @@ export default function TeamPage() {
                 <span className="flex items-center gap-1 text-xs px-2 py-1 bg-gray-800 text-gray-300 rounded-lg">
                   <Shield className="w-3 h-3" /> {m.role}
                 </span>
-                <button
-                  onClick={async () => {
-                    try {
-                      await api.team.remove(m.id)
-                      await qc.invalidateQueries({ queryKey: ['team'] })
-                      toast.success(`${m.name} entfernt`)
-                    } catch (err: any) {
-                      toast.error(err.message || 'Entfernen fehlgeschlagen')
-                    }
-                  }}
-                  className="p-1.5 text-gray-500 hover:text-red-400 transition-colors"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                {canManageTeam && (
+                  <select
+                    value={draftRoles[m.id] ?? m.role}
+                    onChange={e => setDraftRoles(current => ({ ...current, [m.id]: e.target.value }))}
+                    onBlur={async e => {
+                      const nextRole = e.target.value
+                      if (nextRole === m.role) return
+                      try {
+                        await api.team.update(m.id, { role: nextRole })
+                        await qc.invalidateQueries({ queryKey: ['team'] })
+                        await qc.invalidateQueries({ queryKey: ['audit-user-roles'] })
+                        toast.success(`${m.name} aktualisiert`)
+                      } catch (err: any) {
+                        toast.error(err.message || 'Rolle konnte nicht aktualisiert werden')
+                      }
+                    }}
+                    className="input h-8 w-40 text-xs"
+                  >
+                    {(availableRoles.length > 0 ? availableRoles : [m.role]).map(role => (
+                      <option key={role} value={role}>{role}</option>
+                    ))}
+                  </select>
+                )}
+                {canManageTeam && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        await api.team.remove(m.id)
+                        await qc.invalidateQueries({ queryKey: ['team'] })
+                        toast.success(`${m.name} entfernt`)
+                      } catch (err: any) {
+                        toast.error(err.message || 'Entfernen fehlgeschlagen')
+                      }
+                    }}
+                    className="p-1.5 text-gray-500 hover:text-red-400 transition-colors"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
               </div>
             </motion.div>
           )
         })}
       </div>
 
+      {canManageTeam && (
+        <div className="card p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-white font-semibold">Rollen-Audit</h2>
+            <span className="text-xs text-gray-500">{roleAudit.length} Eintraege</span>
+          </div>
+          <div className="space-y-3">
+            {roleAudit.length === 0 ? (
+              <p className="text-sm text-gray-500">Noch keine Rollen-Aenderungen protokolliert.</p>
+            ) : (
+              roleAudit.slice(0, 12).map(entry => (
+                <div key={entry.id} className="rounded-lg bg-gray-800/60 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-white">{entry.title}</p>
+                      <p className="text-xs text-gray-500 mt-1">{entry.userName}</p>
+                    </div>
+                    <span className="text-xs text-gray-500">{new Date(entry.createdAt).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })}</span>
+                  </div>
+                  <p className="text-xs text-gray-300 mt-3">{entry.fromValue || 'leer'} → {entry.toValue || 'leer'}</p>
+                  {entry.detail && <p className="text-xs text-gray-400 mt-1">{entry.detail}</p>}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
       <AnimatePresence>
-        {showInvite && (
+        {showInvite && canManageTeam && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0 }}
@@ -209,7 +264,7 @@ export default function TeamPage() {
                     onChange={e => setForm(f => ({ ...f, role: e.target.value }))}
                     className="input"
                   >
-                    {ROLES.map(r => (
+                    {(availableRoles.length > 0 ? availableRoles : ['Entwickler']).map(r => (
                       <option key={r} value={r}>
                         {r}
                       </option>

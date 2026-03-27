@@ -16,35 +16,45 @@ import {
   FolderKanban,
   ShieldCheck,
   Upload,
+  History,
 } from 'lucide-react'
 import { useAuthStore } from '@/lib/store/authStore'
+import { useAccessMatrix } from '@/lib/hooks/useAccessMatrix'
+import { isEntraConfigured, logoutEntra } from '@/lib/entra/client'
 import toast from 'react-hot-toast'
-
-const NAV = [
-  { href: '/', icon: LayoutDashboard, label: 'Portfolio', section: 'main' },
-  { href: '/analytics', icon: BarChart3, label: 'Analytics', section: 'main' },
-  { href: '/resources', icon: Users, label: 'Ressourcen', section: 'main' },
-  { href: '/team', icon: FolderKanban, label: 'Team', section: 'main' },
-  { href: '/governance', icon: ShieldCheck, label: 'Governance', section: 'main' },
-  { href: '/imports', icon: Upload, label: 'Import Center', section: 'main' },
-  { href: '/ai', icon: Brain, label: 'AI Assistant', section: 'tools' },
-  { href: '/risks', icon: AlertTriangle, label: 'Alle Risiken', section: 'tools' },
-  { href: '/settings', icon: Settings, label: 'Einstellungen', section: 'tools' },
-]
 
 export function Sidebar() {
   const path = usePathname()
   const router = useRouter()
-  const { user, logout } = useAuthStore()
+  const { user, authProvider, logout } = useAuthStore()
+  const { can } = useAccessMatrix()
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     logout()
     toast.success('Abgemeldet')
+    if (authProvider === 'entra' && isEntraConfigured) {
+      await logoutEntra()
+      return
+    }
+
     router.push('/login')
   }
 
-  const mainNav = NAV.filter(n => n.section === 'main')
-  const toolsNav = NAV.filter(n => n.section === 'tools')
+  const nav = [
+    { href: '/', icon: LayoutDashboard, label: 'Portfolio', section: 'main', visible: true },
+    { href: '/analytics', icon: BarChart3, label: 'Analytics', section: 'main', visible: true },
+    { href: '/resources', icon: Users, label: 'Ressourcen', section: 'main', visible: true },
+    { href: '/team', icon: FolderKanban, label: 'Team', section: 'main', visible: can('manageTeam') },
+    { href: '/governance', icon: ShieldCheck, label: 'Governance', section: 'main', visible: can('managePmo') },
+    { href: '/imports', icon: Upload, label: 'Import Center', section: 'main', visible: true },
+    { href: '/audit', icon: History, label: 'Audit', section: 'tools', visible: can('managePmo') },
+    { href: '/ai', icon: Brain, label: 'AI Assistant', section: 'tools', visible: true },
+    { href: '/risks', icon: AlertTriangle, label: 'Alle Risiken', section: 'tools', visible: true },
+    { href: '/settings', icon: Settings, label: 'Einstellungen', section: 'tools', visible: can('configureIntegrations') },
+  ]
+  const visibleNav = nav.filter(item => item.visible)
+  const mainNav = visibleNav.filter(n => n.section === 'main')
+  const toolsNav = visibleNav.filter(n => n.section === 'tools')
 
   return (
     <aside className="h-full w-64 bg-gray-900 border-r border-gray-800 flex flex-col">

@@ -3,10 +3,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Brain, Check, FileText, Loader2, Send, ShieldAlert, Sparkles, User, Wand2, X } from 'lucide-react'
+import { AlertTriangle, BarChart3, Brain, Check, FileText, Loader2, Send, ShieldAlert, Sparkles, TrendingUp, User, Wand2, X } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { api } from '@/lib/api'
-import type { AiSuggestion, PortfolioSummary, WeeklyStatus } from '@/types'
+import type { AiLearningSummary, AiSuggestion, PortfolioBriefing, PortfolioSummary, ProjectAiAnswer, RiskSignal, WeeklyStatus } from '@/types'
 
 interface Message {
   role: 'user' | 'assistant'
@@ -25,6 +25,7 @@ export default function AIPage() {
   const [loading, setLoading] = useState(false)
   const [selectedProjectId, setSelectedProjectId] = useState('')
   const [applyTargets, setApplyTargets] = useState<Record<string, 'task' | 'risk' | 'decision'>>({})
+  const [projectQuestion, setProjectQuestion] = useState('')
   const endRef = useRef<HTMLDivElement>(null)
 
   const { data: portfolio } = useQuery<PortfolioSummary>({
@@ -41,6 +42,21 @@ export default function AIPage() {
     queryKey: ['weekly-status', selectedProjectId],
     queryFn: () => api.ai.getWeeklyStatus(selectedProjectId),
     enabled: !!selectedProjectId,
+  })
+
+  const { data: portfolioBriefing } = useQuery<PortfolioBriefing>({
+    queryKey: ['portfolio-briefing'],
+    queryFn: () => api.ai.getPortfolioBriefing(),
+  })
+
+  const { data: riskSignals = [] } = useQuery<RiskSignal[]>({
+    queryKey: ['risk-signals', selectedProjectId],
+    queryFn: () => api.ai.getRiskSignals(selectedProjectId || undefined),
+  })
+
+  const { data: learningSummary } = useQuery<AiLearningSummary>({
+    queryKey: ['ai-learning-summary'],
+    queryFn: () => api.ai.getLearningSummary(),
   })
 
   const feedbackMutation = useMutation({
@@ -64,6 +80,11 @@ export default function AIPage() {
       toast.success(`Als ${result.targetType} angelegt`)
     },
     onError: (err: Error) => toast.error(err.message),
+  })
+
+  const questionMutation = useMutation<ProjectAiAnswer, Error, string>({
+    mutationFn: question => api.ai.askProjectQuestion(selectedProjectId, question),
+    onError: err => toast.error(err.message),
   })
 
   const selectedProject = useMemo(
@@ -140,6 +161,192 @@ export default function AIPage() {
       </div>
 
       <div className="space-y-6">
+        <div className="card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <BarChart3 className="w-4 h-4 text-blue-400" />
+            <h2 className="font-semibold text-white">Management Briefing</h2>
+          </div>
+          {!portfolioBriefing ? (
+            <p className="text-sm text-gray-500">Portfolio-Briefing wird geladen.</p>
+          ) : (
+            <div className="space-y-4">
+              <p className="text-sm text-gray-200">{portfolioBriefing.summary}</p>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">Highlights</p>
+                <div className="space-y-2">
+                  {portfolioBriefing.highlights.map(item => (
+                    <div key={item} className="rounded-lg bg-gray-800/70 px-3 py-2 text-sm text-gray-200">{item}</div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">Eskalationen</p>
+                <div className="space-y-2">
+                  {portfolioBriefing.escalations.map(item => (
+                    <div key={item} className="rounded-lg border border-amber-500/20 bg-amber-500/10 px-3 py-2 text-sm text-amber-100">{item}</div>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                {portfolioBriefing.projects.slice(0, 4).map(project => (
+                  <div key={project.projectId} className="rounded-lg bg-gray-800/70 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-white">{project.projectName}</p>
+                      <span className="text-[11px] text-gray-400">{project.progressPercent}%</span>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">{project.headline}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <AlertTriangle className="w-4 h-4 text-amber-400" />
+            <h2 className="font-semibold text-white">Risiko-Frueherkennung</h2>
+          </div>
+          {riskSignals.length === 0 ? (
+            <p className="text-sm text-gray-500">Aktuell keine zusaetzlichen Fruehwarnsignale erkannt.</p>
+          ) : (
+            <div className="space-y-3">
+              {riskSignals.slice(0, 6).map(signal => (
+                <div key={`${signal.projectId}-${signal.title}`} className="rounded-xl border border-gray-800 bg-gray-900/70 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-white">{signal.title}</p>
+                      <p className="text-xs text-gray-500 mt-1">{signal.projectName}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`rounded-full px-2 py-1 text-[11px] ${signal.severity === 'high' ? 'bg-red-500/15 text-red-300' : 'bg-amber-500/15 text-amber-300'}`}>{signal.severity}</span>
+                      <span className="rounded-full bg-gray-800 px-2 py-1 text-[11px] text-gray-300">Score {signal.score}</span>
+                    </div>
+                  </div>
+                  <p className="text-sm text-gray-300 mt-3">{signal.detail}</p>
+                  {signal.sources.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {signal.sources.map(source => <span key={source} className="rounded-full bg-gray-800 px-2 py-1 text-[11px] text-gray-300">{source}</span>)}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <TrendingUp className="w-4 h-4 text-blue-400" />
+            <h2 className="font-semibold text-white">Lernendes Feedback</h2>
+          </div>
+          {!learningSummary ? (
+            <p className="text-sm text-gray-500">KI-Lernmuster werden geladen.</p>
+          ) : (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-lg bg-gray-800/70 p-3">
+                  <p className="text-xs text-gray-500">Feedback gesamt</p>
+                  <p className="mt-1 text-lg font-semibold text-white">{learningSummary.totalFeedback}</p>
+                </div>
+                <div className="rounded-lg bg-gray-800/70 p-3">
+                  <p className="text-xs text-gray-500">Akzeptiert</p>
+                  <p className="mt-1 text-lg font-semibold text-emerald-300">{learningSummary.accepted}</p>
+                </div>
+                <div className="rounded-lg bg-gray-800/70 p-3">
+                  <p className="text-xs text-gray-500">Verworfen</p>
+                  <p className="mt-1 text-lg font-semibold text-red-300">{learningSummary.rejected}</p>
+                </div>
+                <div className="rounded-lg bg-gray-800/70 p-3">
+                  <p className="text-xs text-gray-500">Bearbeitet</p>
+                  <p className="mt-1 text-lg font-semibold text-blue-300">{learningSummary.edited}</p>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">Erkenntnisse</p>
+                <div className="space-y-2">
+                  {learningSummary.insights.map(item => (
+                    <div key={item} className="rounded-lg bg-blue-600/10 border border-blue-600/20 px-3 py-2 text-sm text-blue-100">{item}</div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">Top Typen</p>
+                <div className="space-y-2">
+                  {learningSummary.byType.slice(0, 4).map(item => (
+                    <div key={item.suggestionType} className="rounded-lg bg-gray-800/70 p-3 text-sm text-gray-200">
+                      <div className="flex items-center justify-between gap-3">
+                        <span>{item.suggestionType}</span>
+                        <span className="text-xs text-gray-500">{item.accepted} akzeptiert / {item.rejected} verworfen</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="card p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Sparkles className="w-4 h-4 text-blue-400" />
+            <h2 className="font-semibold text-white">Ask Project AI</h2>
+          </div>
+          {!selectedProjectId ? (
+            <p className="text-sm text-gray-500">Waehlen Sie oben ein Projekt aus, um gezielte Fragen mit Quellenbezug zu stellen.</p>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <input
+                  value={projectQuestion}
+                  onChange={event => setProjectQuestion(event.target.value)}
+                  onKeyDown={event => event.key === 'Enter' && !event.shiftKey && projectQuestion.trim() && questionMutation.mutate(projectQuestion)}
+                  placeholder={`Frage zu ${selectedProject?.name ?? 'dem Projekt'}...`}
+                  className="input flex-1"
+                />
+                <button
+                  onClick={() => projectQuestion.trim() && questionMutation.mutate(projectQuestion)}
+                  disabled={!projectQuestion.trim() || questionMutation.isPending}
+                  className="btn-primary px-4"
+                >
+                  {questionMutation.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                </button>
+              </div>
+              {questionMutation.data && (
+                <div className="space-y-3 rounded-xl border border-gray-800 bg-gray-900/70 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium text-white">{questionMutation.data.projectName}</p>
+                    <span className="rounded-full bg-blue-600/10 px-2 py-1 text-[11px] text-blue-300">{questionMutation.data.confidence}</span>
+                  </div>
+                  <p className="text-sm text-gray-200">{questionMutation.data.answer}</p>
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">Quellen</p>
+                    <div className="space-y-2">
+                      {questionMutation.data.sources.map(source => (
+                        <div key={`${source.type}-${source.title}`} className="rounded-lg bg-gray-800/70 p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <p className="text-sm text-white">{source.title}</p>
+                            <span className="text-[11px] text-gray-500">{source.type}</span>
+                          </div>
+                          <p className="text-xs text-gray-400 mt-1">{source.detail}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">Empfohlene Aktionen</p>
+                    <div className="space-y-2">
+                      {questionMutation.data.suggestedActions.map(action => (
+                        <div key={action} className="rounded-lg bg-blue-600/10 border border-blue-600/20 px-3 py-2 text-sm text-blue-100">{action}</div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
         <div className="card p-5">
           <div className="flex items-center gap-2 mb-4">
             <FileText className="w-4 h-4 text-blue-400" />

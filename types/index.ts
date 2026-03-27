@@ -87,16 +87,127 @@ export interface ProjectGovernanceCheck {
   status: 'open' | 'in_progress' | 'done'
 }
 
+export interface ProjectStageGateCheck {
+  id: string
+  title: string
+  requirementType: string
+  status: 'open' | 'done' | 'waived' | string
+  isMandatory: boolean
+  notes: string
+}
+
+export interface ProjectStageGate {
+  id: string
+  title: string
+  stageKey: string
+  gateOrder: number
+  status: 'planned' | 'in_review' | 'approved' | 'blocked' | string
+  dueDate: string
+  ownerName: string
+  notes: string
+  approvalSummary: string
+  checks: ProjectStageGateCheck[]
+}
+
+export interface ProjectApproval {
+  id: string
+  stageGateId?: string | null
+  title: string
+  approvalType: string
+  status: 'pending' | 'approved' | 'rejected' | string
+  dueDate: string
+  requestedByName: string
+  decidedByName: string
+  decisionNotes: string
+}
+
+export interface ProjectForecast {
+  projectId: string
+  projectName: string
+  budgetAtCompletion: number
+  actualCost: number
+  earnedValue: number
+  plannedValue: number
+  costVariance: number
+  scheduleVariance: number
+  estimateAtCompletion: number
+  estimateToComplete: number
+  costPerformanceIndex: number
+  schedulePerformanceIndex: number
+  totalEstimatedHours: number
+  loggedHours: number
+  remainingHours: number
+  forecastComment: string
+}
+
+export interface ProjectForecastSnapshot {
+  id: string
+  snapshotDate: string
+  budgetAtCompletion: number
+  actualCost: number
+  earnedValue: number
+  plannedValue: number
+  estimateAtCompletion: number
+  estimateToComplete: number
+  costPerformanceIndex: number
+  schedulePerformanceIndex: number
+  remainingHours: number
+}
+
 export interface ProjectKnowledgeItem {
   id: string
   title: string
   sourceType: string
   sourceLabel: string
+  category: string
+  sourceFileName: string
+  version: number
+  parentKnowledgeItemId?: string | null
+  linkedEntityType: string
+  linkedEntityId?: string | null
+  meetingReference: string
   content: string
   tags: string[]
   authorName: string
   importance: number
   createdAt: string
+}
+
+export interface KnowledgeSourceStat {
+  key: string
+  count: number
+  highImportanceCount: number
+}
+
+export interface KnowledgeTagStat {
+  tag: string
+  count: number
+}
+
+export interface KnowledgeChunk {
+  knowledgeItemId: string
+  knowledgeTitle: string
+  sourceType: string
+  category: string
+  chunkIndex: number
+  text: string
+  semanticScore: number
+}
+
+export interface ProjectKnowledgeHubItem extends ProjectKnowledgeItem {
+  excerpt: string
+  relevanceScore: number
+}
+
+export interface ProjectKnowledgeHub {
+  projectId: string
+  projectName: string
+  totalItems: number
+  highImportanceItems: number
+  sources: KnowledgeSourceStat[]
+  topTags: KnowledgeTagStat[]
+  items: ProjectKnowledgeHubItem[]
+  semanticMatches: KnowledgeChunk[]
 }
 
 export interface ProjectTeamsLink {
@@ -139,6 +250,8 @@ export interface ProjectDetail extends Project {
   decisions: ProjectDecision[]
   documents: ProjectDocument[]
   governanceChecks: ProjectGovernanceCheck[]
+  stageGates: ProjectStageGate[]
+  approvals: ProjectApproval[]
   knowledgeItems: ProjectKnowledgeItem[]
   teamsLink?: ProjectTeamsLink | null
   jiraLink?: ProjectJiraLink | null
@@ -191,6 +304,20 @@ export interface Activity {
   createdAt: string
 }
 
+export interface AuditEntry {
+  id: string
+  projectId?: string | null
+  userName: string
+  userRole: string
+  entityType: string
+  changeType: string
+  title: string
+  fromValue: string
+  toValue: string
+  detail: string
+  createdAt: string
+}
+
 export interface PortfolioSummary {
   projects: Project[]
   totalProjects: number
@@ -199,11 +326,15 @@ export interface PortfolioSummary {
   redCount: number
   totalBudget: number
   spentBudget: number
+  forecastBudget: number
+  forecastVariance: number
   totalTasks: number
   overdueTasks: number
   openDecisions: number
   overdueMilestones: number
   openGovernanceItems: number
+  overloadedMembers: number
+  nearCapacityMembers: number
 }
 
 export interface GovernanceOverviewProject {
@@ -215,6 +346,9 @@ export interface GovernanceOverviewProject {
   openGovernanceChecks: number
   openDecisions: number
   overdueMilestones: number
+  openStageGates: number
+  blockedStageGates: number
+  pendingApprovals: number
 }
 
 export interface GovernanceOverview {
@@ -223,6 +357,29 @@ export interface GovernanceOverview {
   openGovernanceChecks: number
   openDecisions: number
   overdueMilestones: number
+  openStageGates: number
+  blockedStageGates: number
+  pendingApprovals: number
+}
+
+export interface PortfolioEscalationItem {
+  projectId: string
+  projectName: string
+  severity: 'critical' | 'warning' | string
+  category: 'budget' | 'capacity' | 'stage_gate' | 'approval' | string
+  title: string
+  detail: string
+  metric: string
+  recommendedAction: string
+}
+
+export interface PortfolioEscalationOverview {
+  totalItems: number
+  criticalItems: number
+  warningItems: number
+  budgetWarnings: number
+  capacityWarnings: number
+  items: PortfolioEscalationItem[]
 }
 
 export interface AiSuggestion {
@@ -235,6 +392,23 @@ export interface AiSuggestion {
   priority: 'high' | 'medium' | 'low'
   sources: string[]
   feedbackStatus: 'open' | 'accepted' | 'rejected' | 'edited'
+}
+
+export interface AiAnswerSource {
+  type: string
+  title: string
+  detail: string
+  relevanceScore: number
+}
+
+export interface ProjectAiAnswer {
+  projectId: string
+  projectName: string
+  question: string
+  answer: string
+  confidence: 'low' | 'medium' | 'high' | string
+  sources: AiAnswerSource[]
+  suggestedActions: string[]
 }
 
 export interface ApplyAiSuggestionResponse {
@@ -269,6 +443,12 @@ export interface GraphAuthStart {
   authorizationUrl: string
   state: string
   redirectUri: string
+}
+
+export interface AccessMatrix {
+  currentRole: string
+  availableRoles: string[]
+  permissions: Record<string, boolean>
 }
 
 export interface JiraIntegrationStatus {
@@ -324,6 +504,60 @@ export interface WeeklyStatus {
   governanceFocus: string
   highlights: string[]
   nextActions: string[]
+}
+
+export interface PortfolioBriefingProject {
+  projectId: string
+  projectName: string
+  status: ProjectStatus | string
+  progressPercent: number
+  openTasks: number
+  criticalRisks: number
+  openDecisions: number
+  openGovernanceChecks: number
+  headline: string
+}
+
+export interface PortfolioBriefing {
+  summary: string
+  highlights: string[]
+  escalations: string[]
+  projects: PortfolioBriefingProject[]
+}
+
+export interface RiskSignal {
+  projectId: string
+  projectName: string
+  severity: 'high' | 'medium' | 'low' | string
+  title: string
+  detail: string
+  sources: string[]
+  score: number
+}
+
+export interface AiLearningByType {
+  suggestionType: string
+  accepted: number
+  rejected: number
+  edited: number
+}
+
+export interface AiLearningByProject {
+  projectId: string
+  projectName: string
+  accepted: number
+  rejected: number
+  edited: number
+}
+
+export interface AiLearningSummary {
+  totalFeedback: number
+  accepted: number
+  rejected: number
+  edited: number
+  byType: AiLearningByType[]
+  byProject: AiLearningByProject[]
+  insights: string[]
 }
 
 export interface ImportPreviewRow {

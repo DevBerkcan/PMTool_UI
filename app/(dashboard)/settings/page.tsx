@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
 import { Settings, User, Bell, Shield, Palette, Save, CheckCircle, PlugZap, ExternalLink, Loader2 } from 'lucide-react'
+import { useAccessMatrix } from '@/lib/hooks/useAccessMatrix'
 import { useAuthStore } from '@/lib/store/authStore'
 import toast from 'react-hot-toast'
 import { api } from '@/lib/api'
@@ -18,6 +19,7 @@ const TABS = [
 
 export default function SettingsPage() {
   const { user } = useAuthStore()
+  const { data: accessMatrix } = useAccessMatrix()
   const [tab, setTab] = useState('profile')
   const [saved, setSaved] = useState(false)
   const [profile, setProfile] = useState({
@@ -117,6 +119,22 @@ export default function SettingsPage() {
                   />
                 </div>
               ))}
+              <div className="rounded-xl bg-gray-800/60 p-4">
+                <p className="text-sm font-medium text-white mb-2">Aktive Rollenmatrix</p>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {accessMatrix?.availableRoles.map(role => (
+                    <span key={role} className={`rounded-full px-2 py-1 text-xs ${accessMatrix.currentRole === role ? 'bg-blue-600/15 text-blue-300' : 'bg-gray-700 text-gray-300'}`}>{role}</span>
+                  ))}
+                </div>
+                <div className="grid md:grid-cols-2 gap-2 text-xs">
+                  {Object.entries(accessMatrix?.permissions ?? {}).map(([key, value]) => (
+                    <div key={key} className="rounded-lg bg-gray-900/50 px-3 py-2 flex items-center justify-between">
+                      <span className="text-gray-300">{key}</span>
+                      <span className={value ? 'text-emerald-300' : 'text-red-300'}>{value ? 'erlaubt' : 'gesperrt'}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </motion.div>
           )}
 

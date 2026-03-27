@@ -17,17 +17,20 @@ import {
   DollarSign,
   FileText,
   Flag,
+  GitMerge,
   Lightbulb,
   Loader2,
   Plus,
   Scale,
   ShieldCheck,
+  Stamp,
   TrendingUp,
   Users,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { api } from '@/lib/api'
-import type { Activity as ActivityItem, ProjectDetail } from '@/types'
+import { useAccessMatrix } from '@/lib/hooks/useAccessMatrix'
+import type { Activity as ActivityItem, AuditEntry, ProjectDetail, ProjectForecastSnapshot } from '@/types'
 
 const CATEGORY_LABEL: Record<string, string> = {
   product: 'Produkt',
@@ -44,7 +47,27 @@ function timeAgo(iso: string) {
   return `vor ${Math.floor(seconds / 86400)} Tagen`
 }
 
+function buildTrendPath(values: number[], width: number, height: number) {
+  if (values.length === 0) return ''
+  const max = Math.max(...values, 1)
+  const min = Math.min(...values, 0)
+  const range = max - min || 1
+
+  return values
+    .map((value, index) => {
+      const x = values.length === 1 ? width / 2 : (index / (values.length - 1)) * width
+      const y = height - ((value - min) / range) * height
+      return `${index === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`
+    })
+    .join(' ')
+}
+
 export default function ProjectDetailPage() {
+  const { can } = useAccessMatrix()
+  const canEditProject = can('editProject')
+  const canManagePmo = can('managePmo')
+  const canDecideApproval = can('decideApproval')
+  const canConfigureIntegrations = can('configureIntegrations')
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
   const qc = useQueryClient()
@@ -56,6 +79,9 @@ export default function ProjectDetailPage() {
   const [documentTitle, setDocumentTitle] = useState('')
   const [documentUrl, setDocumentUrl] = useState('')
   const [governanceTitle, setGovernanceTitle] = useState('')
+  const [stageGateTitle, setStageGateTitle] = useState('')
+  const [stageGateCheckTitles, setStageGateCheckTitles] = useState<Record<string, string>>({})
+  const [approvalTitle, setApprovalTitle] = useState('')
   const [knowledgeTitle, setKnowledgeTitle] = useState('')
   const [knowledgeContent, setKnowledgeContent] = useState('')
   const [knowledgeSource, setKnowledgeSource] = useState('meeting')
@@ -91,6 +117,24 @@ export default function ProjectDetailPage() {
   const { data: activities = [] } = useQuery<ActivityItem[]>({
     queryKey: ['project-activities', id],
     queryFn: () => api.activities.getByProject(id),
+    enabled: !!id,
+  })
+
+  const { data: forecast } = useQuery({
+    queryKey: ['project-forecast', id],
+    queryFn: () => api.projects.getForecast(id),
+    enabled: !!id,
+  })
+
+  const { data: forecastSnapshots = [] } = useQuery<ProjectForecastSnapshot[]>({
+    queryKey: ['project-forecast-snapshots', id],
+    queryFn: () => api.projects.getForecastSnapshots(id),
+    enabled: !!id,
+  })
+
+  const { data: auditEntries = [] } = useQuery<AuditEntry[]>({
+    queryKey: ['project-audit', id],
+    queryFn: () => api.activities.getProjectAudit(id),
     enabled: !!id,
   })
 
@@ -196,6 +240,12 @@ export default function ProjectDetailPage() {
       title: knowledgeTitle,
       sourceType: knowledgeSource,
       sourceLabel: 'Projektcockpit',
+      category: 'general',
+      sourceFileName: '',
+      parentKnowledgeItemId: null,
+      linkedEntityType: '',
+      linkedEntityId: null,
+      meetingReference: '',
       content: knowledgeContent,
       tags: [knowledgeSource, project?.category ?? 'project'],
       importance: 4,
@@ -206,6 +256,37 @@ export default function ProjectDetailPage() {
       setKnowledgeSource('meeting')
       await invalidateProject()
       toast.success('Knowledge-Eintrag erstellt')
+    },
+    onError: (err: Error) => toast.error(err.message),
+  })
+
+  const createStageGate = useMutation({
+    mutationFn: () => api.projects.createStageGate(id, {
+      title: stageGateTitle,
+      stageKey: project?.stage ?? 'delivery',
+      dueDate: new Date(Date.now() + 12 * 86400000).toISOString().slice(0, 10),
+      notes: 'Neues PMO-Gate aus dem Projektcockpit.',
+      approvalSummary: 'Freigabe fuer den naechsten Projektabschnitt.',
+    }),
+    onSuccess: async () => {
+      setStageGateTitle('')
+      await invalidateProject()
+      toast.success('Stage Gate erstellt')
+    },
+    onError: (err: Error) => toast.error(err.message),
+  })
+
+  const createApproval = useMutation({
+    mutationFn: () => api.projects.createApproval(id, {
+      title: approvalTitle,
+      approvalType: 'Steering Freigabe',
+      dueDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10),
+      decisionNotes: 'Entscheidung im Steering erforderlich.',
+    }),
+    onSuccess: async () => {
+      setApprovalTitle('')
+      await invalidateProject()
+      toast.success('Freigabe angefordert')
     },
     onError: (err: Error) => toast.error(err.message),
   })
@@ -262,6 +343,38 @@ export default function ProjectDetailPage() {
     onSuccess: invalidateProject,
   })
 
+  const toggleStageGate = useMutation({
+    mutationFn: ({ gateId, status }: { gateId: string; status: string }) => api.projects.updateStageGateStatus(id, gateId, status),
+    onSuccess: invalidateProject,
+  })
+
+  const createStageGateCheck = useMutation({
+    mutationFn: ({ gateId, title }: { gateId: string; title: string }) => api.projects.createStageGateCheck(id, gateId, {
+      title,
+      requirementType: 'Pflichtartefakt',
+      isMandatory: true,
+      notes: 'Pflichtnachweis fuer das Gate.',
+    }),
+    onSuccess: async (_, variables) => {
+      setStageGateCheckTitles(prev => ({ ...prev, [variables.gateId]: '' }))
+      await invalidateProject()
+      toast.success('Gate-Check erstellt')
+    },
+    onError: (err: Error) => toast.error(err.message),
+  })
+
+  const toggleStageGateCheck = useMutation({
+    mutationFn: ({ gateId, checkId, status }: { gateId: string; checkId: string; status: string }) =>
+      api.projects.updateStageGateCheckStatus(id, gateId, checkId, status),
+    onSuccess: invalidateProject,
+  })
+
+  const toggleApproval = useMutation({
+    mutationFn: ({ approvalId, status }: { approvalId: string; status: string }) =>
+      api.projects.updateApprovalStatus(id, approvalId, status, status === 'approved' ? 'Freigabe erteilt.' : 'Freigabe abgelehnt.'),
+    onSuccess: invalidateProject,
+  })
+
   useEffect(() => {
     if (!project?.teamsLink) return
 
@@ -294,6 +407,8 @@ export default function ProjectDetailPage() {
   const statusLabel = { green: 'On Track', yellow: 'At Risk', red: 'Kritisch' }[project.status]
   const openGovernanceChecks = project.governanceChecks.filter(item => item.status !== 'done')
   const openDecisions = project.decisions.filter(item => item.status !== 'done')
+  const openStageGates = project.stageGates.filter(item => item.status !== 'approved')
+  const pendingApprovals = project.approvals.filter(item => item.status === 'pending')
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -319,6 +434,7 @@ export default function ProjectDetailPage() {
           <Link href={`/projects/${id}/tasks`} className="btn-ghost">Tasks</Link>
           <Link href={`/projects/${id}/risks`} className="btn-ghost">Risiken</Link>
           <Link href={`/projects/${id}/gantt`} className="btn-ghost">Gantt</Link>
+          <Link href={`/projects/${id}/knowledge`} className="btn-ghost">Knowledge</Link>
           <Link href={`/projects/${id}/resources`} className="btn-primary">Ressourcen</Link>
         </div>
       </div>
@@ -361,6 +477,59 @@ export default function ProjectDetailPage() {
               </div>
             </div>
           </div>
+
+          {forecast && (
+            <div className="card p-5">
+              <div className="flex items-center gap-2 mb-4"><DollarSign className="w-4 h-4 text-emerald-400" /><h2 className="font-semibold text-white">Budget Forecast & Earned Value</h2></div>
+              <div className="grid md:grid-cols-3 gap-3 text-sm">
+                <div className="rounded-lg bg-gray-800/60 p-4"><p className="text-xs text-gray-500 mb-1">BAC</p><p className="text-white">{fmtMoney(forecast.budgetAtCompletion)}</p></div>
+                <div className="rounded-lg bg-gray-800/60 p-4"><p className="text-xs text-gray-500 mb-1">AC</p><p className="text-white">{fmtMoney(forecast.actualCost)}</p></div>
+                <div className="rounded-lg bg-gray-800/60 p-4"><p className="text-xs text-gray-500 mb-1">EAC</p><p className="text-white">{fmtMoney(forecast.estimateAtCompletion)}</p></div>
+                <div className="rounded-lg bg-gray-800/60 p-4"><p className="text-xs text-gray-500 mb-1">EV</p><p className="text-white">{fmtMoney(forecast.earnedValue)}</p></div>
+                <div className="rounded-lg bg-gray-800/60 p-4"><p className="text-xs text-gray-500 mb-1">PV</p><p className="text-white">{fmtMoney(forecast.plannedValue)}</p></div>
+                <div className="rounded-lg bg-gray-800/60 p-4"><p className="text-xs text-gray-500 mb-1">ETC</p><p className="text-white">{fmtMoney(forecast.estimateToComplete)}</p></div>
+              </div>
+              <div className="grid md:grid-cols-4 gap-3 text-sm mt-3">
+                <div className="rounded-lg bg-gray-800/60 p-4"><p className="text-xs text-gray-500 mb-1">CPI</p><p className={`${forecast.costPerformanceIndex < 1 ? 'text-red-300' : 'text-emerald-300'}`}>{forecast.costPerformanceIndex.toFixed(2)}</p></div>
+                <div className="rounded-lg bg-gray-800/60 p-4"><p className="text-xs text-gray-500 mb-1">SPI</p><p className={`${forecast.schedulePerformanceIndex < 1 ? 'text-amber-300' : 'text-emerald-300'}`}>{forecast.schedulePerformanceIndex.toFixed(2)}</p></div>
+                <div className="rounded-lg bg-gray-800/60 p-4"><p className="text-xs text-gray-500 mb-1">Restaufwand</p><p className="text-white">{forecast.remainingHours}h</p></div>
+                <div className="rounded-lg bg-gray-800/60 p-4"><p className="text-xs text-gray-500 mb-1">Gebuchte Stunden</p><p className="text-white">{forecast.loggedHours}h / {forecast.totalEstimatedHours}h</p></div>
+              </div>
+              <p className="mt-4 text-sm text-gray-300">{forecast.forecastComment}</p>
+            </div>
+          )}
+
+          {forecastSnapshots.length > 0 && (
+            <div className="card p-5">
+              <div className="flex items-center gap-2 mb-4"><TrendingUp className="w-4 h-4 text-blue-400" /><h2 className="font-semibold text-white">Forecast-Trend</h2></div>
+              <div className="rounded-xl border border-gray-800 bg-gray-900/70 p-4 mb-4">
+                <svg viewBox="0 0 320 120" className="w-full h-32">
+                  <path d={buildTrendPath([...forecastSnapshots].reverse().map(snapshot => Number(snapshot.estimateAtCompletion)), 320, 120)} fill="none" stroke="#60a5fa" strokeWidth="3" strokeLinecap="round" />
+                  <path d={buildTrendPath([...forecastSnapshots].reverse().map(snapshot => Number(snapshot.earnedValue)), 320, 120)} fill="none" stroke="#34d399" strokeWidth="2" strokeLinecap="round" opacity="0.9" />
+                </svg>
+                <div className="mt-3 flex gap-4 text-xs text-gray-400">
+                  <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-blue-400" /> EAC</span>
+                  <span className="flex items-center gap-2"><span className="h-2 w-2 rounded-full bg-emerald-400" /> EV</span>
+                </div>
+              </div>
+              <div className="space-y-3">
+                {forecastSnapshots.map(snapshot => (
+                  <div key={snapshot.id} className="rounded-lg bg-gray-800/60 p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-sm font-medium text-white">{new Date(snapshot.snapshotDate).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                      <span className="text-xs text-gray-500">CPI {snapshot.costPerformanceIndex.toFixed(2)} · SPI {snapshot.schedulePerformanceIndex.toFixed(2)}</span>
+                    </div>
+                    <div className="mt-3 grid md:grid-cols-4 gap-2 text-xs">
+                      <div className="rounded-lg bg-gray-900/60 px-3 py-2 text-gray-300">AC {fmtMoney(snapshot.actualCost)}</div>
+                      <div className="rounded-lg bg-gray-900/60 px-3 py-2 text-gray-300">EV {fmtMoney(snapshot.earnedValue)}</div>
+                      <div className="rounded-lg bg-gray-900/60 px-3 py-2 text-gray-300">EAC {fmtMoney(snapshot.estimateAtCompletion)}</div>
+                      <div className="rounded-lg bg-gray-900/60 px-3 py-2 text-gray-300">Rest {snapshot.remainingHours}h</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="card p-5">
             <div className="flex items-center justify-between mb-4">
@@ -418,13 +587,15 @@ export default function ProjectDetailPage() {
           <div className="grid lg:grid-cols-2 gap-6">
             <div className="card p-5">
               <div className="flex items-center justify-between mb-4"><h2 className="font-semibold text-white flex items-center gap-2"><Flag className="w-4 h-4 text-amber-400" /> Meilensteine</h2><span className="text-xs text-gray-500">{project.milestones.length}</span></div>
-              <div className="flex gap-2 mb-4">
-                <input value={milestoneTitle} onChange={event => setMilestoneTitle(event.target.value)} placeholder="Neuer Meilenstein..." className="input text-sm" />
-                <button onClick={() => milestoneTitle.trim() && createMilestone.mutate()} className="btn-primary px-3"><Plus className="w-4 h-4" /></button>
-              </div>
+              {canEditProject && (
+                <div className="flex gap-2 mb-4">
+                  <input value={milestoneTitle} onChange={event => setMilestoneTitle(event.target.value)} placeholder="Neuer Meilenstein..." className="input text-sm" />
+                  <button onClick={() => milestoneTitle.trim() && createMilestone.mutate()} className="btn-primary px-3"><Plus className="w-4 h-4" /></button>
+                </div>
+              )}
               <div className="space-y-2">
                 {project.milestones.map(item => (
-                  <button key={item.id} onClick={() => toggleMilestone.mutate({ milestoneId: item.id, status: item.status === 'done' ? 'planned' : 'done' })} className={`w-full text-left rounded-lg p-3 border ${item.status === 'done' ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-gray-700 bg-gray-800/60'}`}>
+                  <button key={item.id} onClick={() => canEditProject && toggleMilestone.mutate({ milestoneId: item.id, status: item.status === 'done' ? 'planned' : 'done' })} className={`w-full text-left rounded-lg p-3 border ${item.status === 'done' ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-gray-700 bg-gray-800/60'}`}>
                     <div className="flex items-start justify-between gap-3">
                       <div><p className={`text-sm font-medium ${item.status === 'done' ? 'text-emerald-300 line-through' : 'text-white'}`}>{item.title}</p><p className="text-xs text-gray-500 mt-1">{item.description}</p></div>
                       <span className="text-xs text-gray-500">{new Date(item.dueDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}</span>
@@ -436,13 +607,15 @@ export default function ProjectDetailPage() {
 
             <div className="card p-5">
               <div className="flex items-center justify-between mb-4"><h2 className="font-semibold text-white flex items-center gap-2"><Scale className="w-4 h-4 text-violet-400" /> Entscheidungen</h2><span className="text-xs text-gray-500">{project.decisions.filter(item => item.status !== 'done').length} offen</span></div>
-              <div className="flex gap-2 mb-4">
-                <input value={decisionTitle} onChange={event => setDecisionTitle(event.target.value)} placeholder="Neue Entscheidung..." className="input text-sm" />
-                <button onClick={() => decisionTitle.trim() && createDecision.mutate()} className="btn-primary px-3"><Plus className="w-4 h-4" /></button>
-              </div>
+              {canEditProject && (
+                <div className="flex gap-2 mb-4">
+                  <input value={decisionTitle} onChange={event => setDecisionTitle(event.target.value)} placeholder="Neue Entscheidung..." className="input text-sm" />
+                  <button onClick={() => decisionTitle.trim() && createDecision.mutate()} className="btn-primary px-3"><Plus className="w-4 h-4" /></button>
+                </div>
+              )}
               <div className="space-y-2">
                 {project.decisions.map(item => (
-                  <button key={item.id} onClick={() => toggleDecision.mutate({ decisionId: item.id, status: item.status === 'done' ? 'open' : 'done' })} className={`w-full text-left rounded-lg p-3 border ${item.status === 'done' ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-gray-700 bg-gray-800/60'}`}>
+                  <button key={item.id} onClick={() => canEditProject && toggleDecision.mutate({ decisionId: item.id, status: item.status === 'done' ? 'open' : 'done' })} className={`w-full text-left rounded-lg p-3 border ${item.status === 'done' ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-gray-700 bg-gray-800/60'}`}>
                     <p className={`text-sm font-medium ${item.status === 'done' ? 'text-emerald-300' : 'text-white'}`}>{item.title}</p>
                     <p className="text-xs text-gray-500 mt-1">{item.context}</p>
                     <p className="text-xs text-gray-300 mt-2">{item.decision}</p>
@@ -454,13 +627,15 @@ export default function ProjectDetailPage() {
 
           <div className="card p-5">
             <div className="flex items-center justify-between mb-4"><h2 className="font-semibold text-white flex items-center gap-2"><ShieldCheck className="w-4 h-4 text-blue-400" /> Governance Checks</h2><span className="text-xs text-gray-500">{openGovernanceChecks.length} offen</span></div>
-            <div className="flex gap-2 mb-4">
-              <input value={governanceTitle} onChange={event => setGovernanceTitle(event.target.value)} placeholder="Neuer Governance-Check..." className="input text-sm" />
-              <button onClick={() => governanceTitle.trim() && createGovernanceCheck.mutate()} className="btn-primary px-3"><Plus className="w-4 h-4" /></button>
-            </div>
+            {canManagePmo && (
+              <div className="flex gap-2 mb-4">
+                <input value={governanceTitle} onChange={event => setGovernanceTitle(event.target.value)} placeholder="Neuer Governance-Check..." className="input text-sm" />
+                <button onClick={() => governanceTitle.trim() && createGovernanceCheck.mutate()} className="btn-primary px-3"><Plus className="w-4 h-4" /></button>
+              </div>
+            )}
             <div className="grid md:grid-cols-2 gap-3">
               {project.governanceChecks.map(check => (
-                <button key={check.id} onClick={() => toggleGovernance.mutate({ checkId: check.id, status: check.status === 'done' ? 'open' : 'done' })} className={`text-left rounded-lg p-4 border ${check.status === 'done' ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-gray-700 bg-gray-800/60'}`}>
+                <button key={check.id} onClick={() => canManagePmo && toggleGovernance.mutate({ checkId: check.id, status: check.status === 'done' ? 'open' : 'done' })} className={`text-left rounded-lg p-4 border ${check.status === 'done' ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-gray-700 bg-gray-800/60'}`}>
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className={`text-sm font-medium ${check.status === 'done' ? 'text-emerald-300' : 'text-white'}`}>{check.title}</p>
@@ -471,6 +646,83 @@ export default function ProjectDetailPage() {
                   <p className="text-xs text-gray-300 mt-3">{check.notes}</p>
                 </button>
               ))}
+            </div>
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-6">
+            <div className="card p-5">
+              <div className="flex items-center justify-between mb-4"><h2 className="font-semibold text-white flex items-center gap-2"><GitMerge className="w-4 h-4 text-violet-400" /> Stage Gates</h2><span className="text-xs text-gray-500">{openStageGates.length} offen</span></div>
+              {canManagePmo && (
+                <div className="flex gap-2 mb-4">
+                  <input value={stageGateTitle} onChange={event => setStageGateTitle(event.target.value)} placeholder="Neues Stage Gate..." className="input text-sm" />
+                  <button onClick={() => stageGateTitle.trim() && createStageGate.mutate()} className="btn-primary px-3"><Plus className="w-4 h-4" /></button>
+                </div>
+              )}
+              <div className="space-y-3">
+                {project.stageGates.map(gate => (
+                  <div key={gate.id} className="rounded-lg border border-gray-700 bg-gray-800/60 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-white">{gate.gateOrder}. {gate.title}</p>
+                        <p className="text-xs text-gray-500 mt-1">{gate.stageKey} · {gate.ownerName} · {new Date(gate.dueDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}</p>
+                      </div>
+                      <select value={gate.status} onChange={event => canManagePmo && toggleStageGate.mutate({ gateId: gate.id, status: event.target.value })} className="input h-9 w-36 text-xs" disabled={!canManagePmo}>
+                        <option value="planned">planned</option>
+                        <option value="in_review">in_review</option>
+                        <option value="approved">approved</option>
+                        <option value="blocked">blocked</option>
+                      </select>
+                    </div>
+                    <p className="text-xs text-gray-300 mt-3">{gate.notes || gate.approvalSummary}</p>
+                    <div className="mt-3 space-y-2">
+                      {gate.checks.map(check => (
+                        <button key={check.id} onClick={() => canManagePmo && toggleStageGateCheck.mutate({ gateId: gate.id, checkId: check.id, status: check.status === 'done' ? 'open' : 'done' })} className={`w-full text-left rounded-lg px-3 py-2 border ${check.status === 'done' ? 'border-emerald-500/30 bg-emerald-500/10' : 'border-gray-700 bg-gray-900/50'}`}>
+                          <div className="flex items-center justify-between gap-3">
+                            <p className={`text-sm ${check.status === 'done' ? 'text-emerald-300' : 'text-gray-200'}`}>{check.title}</p>
+                            <span className="text-[11px] text-gray-500">{check.requirementType}</span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                    {canManagePmo && (
+                      <div className="mt-3 flex gap-2">
+                        <input value={stageGateCheckTitles[gate.id] ?? ''} onChange={event => setStageGateCheckTitles(prev => ({ ...prev, [gate.id]: event.target.value }))} placeholder="Neuer Gate-Check..." className="input text-sm" />
+                        <button onClick={() => (stageGateCheckTitles[gate.id] ?? '').trim() && createStageGateCheck.mutate({ gateId: gate.id, title: stageGateCheckTitles[gate.id] })} className="btn-ghost px-3 text-xs">Check</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="card p-5">
+              <div className="flex items-center justify-between mb-4"><h2 className="font-semibold text-white flex items-center gap-2"><Stamp className="w-4 h-4 text-emerald-400" /> Freigaben</h2><span className="text-xs text-gray-500">{pendingApprovals.length} pending</span></div>
+              {canEditProject && (
+                <div className="flex gap-2 mb-4">
+                  <input value={approvalTitle} onChange={event => setApprovalTitle(event.target.value)} placeholder="Neue Freigabe..." className="input text-sm" />
+                  <button onClick={() => approvalTitle.trim() && createApproval.mutate()} className="btn-primary px-3"><Plus className="w-4 h-4" /></button>
+                </div>
+              )}
+              <div className="space-y-3">
+                {project.approvals.map(approval => (
+                  <div key={approval.id} className="rounded-lg border border-gray-700 bg-gray-800/60 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-white">{approval.title}</p>
+                        <p className="text-xs text-gray-500 mt-1">{approval.approvalType} · angefragt von {approval.requestedByName}</p>
+                      </div>
+                      <span className={`rounded-full px-2 py-1 text-[11px] ${approval.status === 'approved' ? 'bg-emerald-500/10 text-emerald-300' : approval.status === 'rejected' ? 'bg-red-500/10 text-red-300' : 'bg-amber-500/10 text-amber-300'}`}>{approval.status}</span>
+                    </div>
+                    <p className="text-xs text-gray-300 mt-3">{approval.decisionNotes || 'Noch keine Entscheidungsnotiz.'}</p>
+                    {canDecideApproval && (
+                      <div className="mt-3 flex gap-2">
+                        <button onClick={() => toggleApproval.mutate({ approvalId: approval.id, status: 'approved' })} className="btn-ghost px-3 py-2 text-xs">Genehmigen</button>
+                        <button onClick={() => toggleApproval.mutate({ approvalId: approval.id, status: 'rejected' })} className="btn-ghost px-3 py-2 text-xs">Ablehnen</button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -561,7 +813,7 @@ export default function ProjectDetailPage() {
                 <option value="connected">connected</option>
               </select>
             </div>
-            <button onClick={() => updateTeamsLink.mutate()} className="btn-primary w-full">Teams-Link speichern</button>
+            {canConfigureIntegrations && <button onClick={() => updateTeamsLink.mutate()} className="btn-primary w-full">Teams-Link speichern</button>}
           </div>
 
           <div className="card p-5">
@@ -580,7 +832,7 @@ export default function ProjectDetailPage() {
                 <option value="connected">connected</option>
               </select>
             </div>
-            <button onClick={() => updateJiraLink.mutate()} className="btn-primary w-full mb-4">Jira-Link speichern</button>
+            {canConfigureIntegrations && <button onClick={() => updateJiraLink.mutate()} className="btn-primary w-full mb-4">Jira-Link speichern</button>}
             {jiraLoading ? (
               <div className="flex items-center gap-2 text-sm text-gray-400">
                 <Loader2 className="w-4 h-4 animate-spin" /> Jira-Tickets werden geladen...
@@ -636,6 +888,31 @@ export default function ProjectDetailPage() {
                   <div className="min-w-0"><p className="text-xs text-gray-200"><span className="font-medium">{activity.userName}</span> <span className="text-gray-400">{activity.action}</span></p><p className="text-xs text-gray-600">{timeAgo(activity.createdAt)}</p></div>
                 </div>
               ))}
+            </div>
+          </div>
+
+          <div className="card p-5">
+            <h2 className="font-semibold text-white flex items-center gap-2 mb-4"><Stamp className="w-4 h-4 text-blue-400" /> Audit-Historie</h2>
+            <div className="space-y-3">
+              {auditEntries.length === 0 ? (
+                <p className="text-sm text-gray-500">Noch keine Audit-Eintraege fuer dieses Projekt.</p>
+              ) : (
+                auditEntries.map(entry => (
+                  <div key={entry.id} className="rounded-lg bg-gray-800/60 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-white">{entry.title}</p>
+                        <p className="text-xs text-gray-500 mt-1">{entry.userName} · {entry.entityType} · {entry.changeType}</p>
+                      </div>
+                      <span className="text-xs text-gray-500">{timeAgo(entry.createdAt)}</span>
+                    </div>
+                    {(entry.fromValue || entry.toValue) && (
+                      <p className="text-xs text-gray-300 mt-3">{entry.fromValue || 'leer'} → {entry.toValue || 'leer'}</p>
+                    )}
+                    {entry.detail && <p className="text-xs text-gray-400 mt-1">{entry.detail}</p>}
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>

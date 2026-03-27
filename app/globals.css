@@ -3,20 +3,49 @@
 @tailwind utilities;
 
 @layer base {
-  :root { color-scheme: dark; }
+  :root { color-scheme: light; }
+  .dark { color-scheme: dark; }
   * { box-sizing: border-box; }
-  body { @apply bg-gray-950 text-gray-100; font-family: 'Inter', system-ui, sans-serif; }
+  body { @apply bg-slate-100 text-slate-900; font-family: 'Inter', system-ui, sans-serif; }
+  .dark body { @apply bg-gray-950 text-gray-100; }
   ::-webkit-scrollbar { width: 6px; height: 6px; }
-  ::-webkit-scrollbar-track { @apply bg-gray-900; }
-  ::-webkit-scrollbar-thumb { @apply bg-gray-700 rounded-full; }
-  ::-webkit-scrollbar-thumb:hover { @apply bg-gray-600; }
+  ::-webkit-scrollbar-track { @apply bg-slate-200; }
+  .dark ::-webkit-scrollbar-track { @apply bg-gray-900; }
+  ::-webkit-scrollbar-thumb { @apply bg-slate-400 rounded-full; }
+  .dark ::-webkit-scrollbar-thumb { @apply bg-gray-700; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-slate-500; }
+  .dark ::-webkit-scrollbar-thumb:hover { @apply bg-gray-600; }
+
+  .light .bg-gray-950 { background-color: rgb(241 245 249) !important; }
+  .light .bg-gray-900 { background-color: rgb(255 255 255) !important; }
+  .light .bg-gray-800,
+  .light .bg-gray-800\/50,
+  .light .bg-gray-800\/60,
+  .light .bg-gray-800\/70,
+  .light .bg-gray-900\/40,
+  .light .bg-gray-900\/50,
+  .light .bg-gray-900\/70 { background-color: rgb(248 250 252) !important; }
+  .light .border-gray-800,
+  .light .border-gray-700 { border-color: rgb(226 232 240) !important; }
+  .light .text-white,
+  .light .text-gray-100,
+  .light .text-gray-200,
+  .light .text-gray-300 { color: rgb(15 23 42) !important; }
+  .light .text-gray-400,
+  .light .text-gray-500,
+  .light .text-gray-600 { color: rgb(71 85 105) !important; }
+  .light .hover\:bg-gray-800:hover,
+  .light .hover\:bg-gray-900\/70:hover { background-color: rgb(241 245 249) !important; }
 }
 
 @layer components {
-  .card { @apply bg-gray-900 border border-gray-800 rounded-xl; }
+  .card { @apply bg-white border border-slate-200 rounded-xl shadow-sm; }
+  .dark .card { @apply bg-gray-900 border-gray-800 shadow-none; }
   .btn-primary { @apply flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed; }
-  .btn-ghost { @apply flex items-center gap-2 px-3 py-2 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg text-sm transition-colors; }
-  .input { @apply w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-100 placeholder:text-gray-500 focus:outline-none focus:border-blue-500 transition-colors; }
+  .btn-ghost { @apply flex items-center gap-2 px-3 py-2 text-slate-600 hover:text-slate-950 hover:bg-slate-100 rounded-lg text-sm transition-colors; }
+  .dark .btn-ghost { @apply text-gray-400 hover:text-white hover:bg-gray-800; }
+  .input { @apply w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-lg text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-blue-500 transition-colors; }
+  .dark .input { @apply bg-gray-800 border-gray-700 text-gray-100 placeholder:text-gray-500; }
   .badge-green  { @apply inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-500/15 text-emerald-400 text-xs rounded-full font-medium; }
   .badge-yellow { @apply inline-flex items-center gap-1 px-2 py-0.5 bg-amber-500/15   text-amber-400   text-xs rounded-full font-medium; }
   .badge-red    { @apply inline-flex items-center gap-1 px-2 py-0.5 bg-red-500/15     text-red-400     text-xs rounded-full font-medium; }

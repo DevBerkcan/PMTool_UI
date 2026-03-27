@@ -1,9 +1,11 @@
 'use client'
 
-import { Menu, Search, Plus } from 'lucide-react'
-import { useState } from 'react'
+import { Menu, Search, Plus, Moon, Sun } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { NotificationBell } from '@/components/ui/NotificationBell'
+import { useAccessMatrix } from '@/lib/hooks/useAccessMatrix'
 import { useAuthStore } from '@/lib/store/authStore'
+import { useTheme } from 'next-themes'
 
 interface Props {
   onToggleSidebar: () => void
@@ -12,7 +14,12 @@ interface Props {
 
 export function TopBar({ onToggleSidebar, onNewProject }: Props) {
   const [search, setSearch] = useState('')
+  const [mounted, setMounted] = useState(false)
   const { user } = useAuthStore()
+  const { can } = useAccessMatrix()
+  const { theme, setTheme } = useTheme()
+
+  useEffect(() => setMounted(true), [])
 
   return (
     <header className="h-16 bg-gray-900 border-b border-gray-800 flex items-center px-6 gap-4 flex-shrink-0">
@@ -33,9 +40,16 @@ export function TopBar({ onToggleSidebar, onNewProject }: Props) {
       </div>
       <div className="flex-1" />
 
-      <button onClick={onNewProject} className="btn-primary">
-        <Plus className="w-4 h-4" /> Projekt
-      </button>
+      {can('managePortfolio') && (
+        <button onClick={onNewProject} className="btn-primary">
+          <Plus className="w-4 h-4" /> Projekt
+        </button>
+      )}
+      {mounted && (
+        <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="btn-ghost">
+          {theme === 'dark' ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+        </button>
+      )}
       <NotificationBell />
       <div className="flex items-center gap-2 pl-2 border-l border-gray-800">
         <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold text-white">
