@@ -58,13 +58,9 @@ export function Sidebar() {
 
   return (
     <aside className="h-full w-64 bg-gray-900 border-r border-gray-800 flex flex-col">
-      <div className="h-16 flex items-center px-5 border-b border-gray-800 gap-3">
-        <div className="relative h-9 w-9 overflow-hidden rounded-xl bg-white/95 p-1 shadow-sm">
-          <Image src="/realcorelogo.png" alt="RealCore Logo" fill className="object-contain p-1" sizes="36px" priority />
-        </div>
-        <div>
-          <p className="text-sm font-bold text-white">realcore PM</p>
-          <p className="text-xs text-gray-500">RealCore Projektportfolio</p>
+      <div className="flex h-24 items-center justify-center border-b border-gray-800 px-5">
+        <div className="relative h-14 w-40 overflow-hidden rounded-2xl bg-white/95 px-3 py-2 shadow-sm">
+          <Image src="/realcorelogo.png" alt="RealCore Logo" fill className="object-contain p-2" sizes="160px" priority />
         </div>
       </div>
 
