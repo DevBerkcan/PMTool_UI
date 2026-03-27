@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { AccessMatrix, Activity, AiLearningSummary, AiSuggestion, AiSuggestionFeedback, ApplyAiSuggestionResponse, AuditEntry, GovernanceOverview, GraphAuthStart, GraphIntegrationStatus, ImportAnalyzeResponse, ImportCommitResponse, JiraIntegrationStatus, JiraProjectTickets, MeetingAnalyzeResponse, MeetingCommitResponse, PortfolioBriefing, PortfolioEscalationOverview, PortfolioSummary, Project, ProjectAiAnswer, ProjectApproval, ProjectDecision, ProjectDetail, ProjectDocument, ProjectForecast, ProjectForecastSnapshot, ProjectGovernanceCheck, ProjectJiraLink, ProjectKnowledgeHub, ProjectKnowledgeItem, ProjectLeadTask, ProjectMilestone, ProjectNote, ProjectStageGate, ProjectStageGateCheck, ProjectTeamMember, ProjectTeamsLink, Risk, RiskSignal, Task, TeamMember, WeeklyStatus } from '@/types'
+import type { AccessMatrix, Activity, AiLearningSummary, AiSuggestion, AiSuggestionFeedback, ApplyAiSuggestionResponse, AuditEntry, EntraIntegrationStatus, GovernanceOverview, GraphAuthStart, GraphIntegrationStatus, ImportAnalyzeResponse, ImportCommitResponse, JiraIntegrationStatus, JiraProjectTickets, MeetingAnalyzeResponse, MeetingCommitResponse, PortfolioBriefing, PortfolioEscalationOverview, PortfolioSummary, Project, ProjectAiAnswer, ProjectApproval, ProjectDecision, ProjectDetail, ProjectDocument, ProjectForecast, ProjectForecastSnapshot, ProjectGovernanceCheck, ProjectJiraLink, ProjectKnowledgeHub, ProjectKnowledgeItem, ProjectLeadTask, ProjectMilestone, ProjectNote, ProjectStageGate, ProjectStageGateCheck, ProjectTeamMember, ProjectTeamsLink, Risk, RiskSignal, Task, TeamMember, WeeklyStatus } from '@/types'
 
 interface LoginResponse {
   token: string
@@ -70,6 +70,7 @@ export const api = {
       post<LoginResponse>('/auth/login', { email, password }),
     exchangeEntraToken: (idToken: string) =>
       post<EntraExchangeResponse>('/auth/entra/exchange', { idToken }),
+    getEntraStatus: () => get<EntraIntegrationStatus>('/auth/entra/status'),
     getAccessMatrix: () => get<AccessMatrix>('/auth/access-matrix'),
   },
   projects: {

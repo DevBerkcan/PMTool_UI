@@ -41,6 +41,10 @@ export default function SettingsPage() {
     queryKey: ['graph-status'],
     queryFn: () => api.integrations.getGraphStatus(),
   })
+  const { data: entraStatus } = useQuery({
+    queryKey: ['entra-status'],
+    queryFn: () => api.auth.getEntraStatus(),
+  })
   const { data: jiraStatus } = useQuery({
     queryKey: ['jira-status'],
     queryFn: () => api.integrations.getJiraStatus(),
@@ -239,6 +243,54 @@ export default function SettingsPage() {
 
           {tab === 'integrations' && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+              <h2 className="font-semibold text-white mb-4">Entra ID Rollenmapping</h2>
+              <div className={`rounded-xl border p-4 ${entraStatus?.isConfigured ? 'border-emerald-800/50 bg-emerald-950/30' : 'border-amber-800/50 bg-amber-950/20'}`}>
+                <p className="text-sm font-medium text-white">{entraStatus?.isConfigured ? 'Entra ID Login ist aktiv' : 'Entra ID Login ist noch nicht konfiguriert'}</p>
+                <p className="text-xs text-gray-400 mt-1">{entraStatus?.setupHint}</p>
+              </div>
+              <div className="grid md:grid-cols-2 gap-4 text-sm">
+                <div className="rounded-lg bg-gray-800/60 p-4">
+                  <p className="text-xs text-gray-500 mb-1">Client ID</p>
+                  <p className="text-white break-all">{entraStatus?.clientId || 'Nicht gesetzt'}</p>
+                </div>
+                <div className="rounded-lg bg-gray-800/60 p-4">
+                  <p className="text-xs text-gray-500 mb-1">Tenant ID</p>
+                  <p className="text-white break-all">{entraStatus?.tenantId || 'Nicht gesetzt'}</p>
+                </div>
+                <div className="rounded-lg bg-gray-800/60 p-4">
+                  <p className="text-xs text-gray-500 mb-1">Default-Rolle</p>
+                  <p className="text-white">{entraStatus?.defaultRole || 'Nicht gesetzt'}</p>
+                </div>
+                <div className="rounded-lg bg-gray-800/60 p-4">
+                  <p className="text-xs text-gray-500 mb-1">Auto-Provisioning</p>
+                  <p className="text-white">{entraStatus?.autoProvisionUsers ? 'Aktiv' : 'Deaktiviert'}</p>
+                </div>
+                <div className="rounded-lg bg-gray-800/60 p-4 md:col-span-2">
+                  <p className="text-xs text-gray-500 mb-2">Freigegebene Domains</p>
+                  <div className="flex flex-wrap gap-2">
+                    {entraStatus?.allowedDomains?.length ? entraStatus.allowedDomains.map(domain => (
+                      <span key={domain} className="rounded-full bg-slate-700 px-2 py-1 text-xs text-slate-200">{domain}</span>
+                    )) : <span className="text-gray-400 text-xs">Keine Domain-Regel gesetzt</span>}
+                  </div>
+                </div>
+              </div>
+              <div className="rounded-xl bg-gray-800/60 p-4">
+                <p className="text-sm font-medium text-white mb-3">Gruppen auf Rollen</p>
+                <div className="space-y-2">
+                  {entraStatus?.roleMappings?.map(mapping => (
+                    <div key={mapping.role} className="flex items-center justify-between rounded-lg bg-gray-900/60 px-3 py-2">
+                      <div>
+                        <p className="text-sm text-white">{mapping.role}</p>
+                        <p className="text-xs text-gray-500 break-all">{mapping.groupId || 'Keine Gruppe hinterlegt'}</p>
+                      </div>
+                      <span className={`rounded-full px-2 py-1 text-xs ${mapping.isConfigured ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'}`}>
+                        {mapping.isConfigured ? 'Gemappt' : 'Offen'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
               <h2 className="font-semibold text-white mb-4">Microsoft Graph / Teams</h2>
               <div className={`rounded-xl border p-4 ${graphStatus?.isConfigured ? 'border-emerald-800/50 bg-emerald-950/30' : 'border-amber-800/50 bg-amber-950/20'}`}>
                 <p className="text-sm font-medium text-white">{graphStatus?.isConfigured ? 'Graph ist vorbereitet' : 'Graph ist noch nicht konfiguriert'}</p>

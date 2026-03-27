@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { AlertCircle, Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck, Zap } from 'lucide-react'
+import { AlertCircle, Eye, EyeOff, Loader2, Lock, Mail, ShieldCheck } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { api } from '@/lib/api'
 import { getEntraAccount, getEntraIdToken, handleEntraRedirect, isEntraConfigured, startEntraLogin } from '@/lib/entra/client'
@@ -112,8 +113,8 @@ export default function LoginPage() {
         className="w-full max-w-md"
       >
         <div className="text-center mb-8">
-          <div className="w-14 h-14 rounded-2xl bg-blue-600 flex items-center justify-center mx-auto mb-4">
-            <Zap className="w-7 h-7 text-white" />
+          <div className="relative mx-auto mb-4 h-16 w-16 overflow-hidden rounded-2xl bg-white p-2 shadow-sm ring-1 ring-black/5 dark:bg-white/95">
+            <Image src="/realcorelogo.png" alt="RealCore Logo" fill className="object-contain p-2" sizes="64px" priority />
           </div>
           <h1 className="text-2xl font-bold text-gray-950 dark:text-white">realcore PM</h1>
           <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">Projektmanagement · RealCore</p>
@@ -195,9 +196,9 @@ export default function LoginPage() {
             </button>
           </form>
 
-          <div className="mt-6 p-3 bg-gray-100 dark:bg-gray-800/50 rounded-lg">
-            <p className="text-xs text-gray-500 text-center">Demo-Zugangsdaten</p>
-            <p className="text-xs text-gray-400 text-center mt-1">berkcan@realcore.de · demo1234</p>
+          <div className="mt-6 rounded-lg bg-gray-100 p-3 dark:bg-gray-800/50">
+            <p className="text-center text-xs text-gray-500">Demo-Zugangsdaten</p>
+            <p className="mt-1 text-center text-xs text-gray-400">berkcan@realcore.de · demo1234</p>
           </div>
         </div>
       </motion.div>

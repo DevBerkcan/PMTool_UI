@@ -451,6 +451,23 @@ export interface AccessMatrix {
   permissions: Record<string, boolean>
 }
 
+export interface EntraRoleMapping {
+  role: string
+  groupId: string
+  isConfigured: boolean
+}
+
+export interface EntraIntegrationStatus {
+  isConfigured: boolean
+  tenantId: string
+  clientId: string
+  autoProvisionUsers: boolean
+  defaultRole: string
+  allowedDomains: string[]
+  roleMappings: EntraRoleMapping[]
+  setupHint: string
+}
+
 export interface JiraIntegrationStatus {
   isConfigured: boolean
   baseUrl: string
