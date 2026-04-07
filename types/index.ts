@@ -626,3 +626,79 @@ export interface MeetingCommitResponse {
   createdKnowledgeItems: number
   summary: string
 }
+
+
+// ── Time Entries ───────────────────────────────────────────────────────────────
+
+export interface TimeEntryDayDto {
+  id?: string
+  day: number
+  weekday: string
+  weekNumber: number
+  isWeekend: boolean
+  geleistetHours: number
+  fakturiertHours: number
+  comment: string
+}
+
+export interface TimeEntriesResponse {
+  projectId: string
+  projectName: string
+  customer: string
+  budgetTotal: number
+  year: number
+  month: number
+  serviceType: string
+  totalGeleistet: number
+  totalFakturiert: number
+  status: 'draft' | 'submitted'
+  submittedAt?: string
+  days: TimeEntryDayDto[]
+}
+
+export interface TimeEntryDashboardRow {
+  userId: string
+  userName: string
+  userEmail: string
+  projectId: string
+  projectName: string
+  totalGeleistet: number
+  totalFakturiert: number
+  status: 'draft' | 'submitted'
+  submittedAt?: string
+  dayEntries: TimeEntryDayDto[]
+}
+
+export interface TimeEntryNotificationDto {
+  id: string
+  message: string
+  isRead: boolean
+  createdAt: string
+  projectId: string
+  projectName: string
+  submittedByName: string
+  submittedByUserId: string
+  year: number
+  month: number
+}
+
+export interface MyProjectDto {
+  id: string
+  name: string
+  customer: string
+  status: string
+}
+
+export interface BulkSaveRequest {
+  projectId: string
+  year: number
+  month: number
+  serviceType?: string
+  days: { day: number; geleistetHours: number; fakturiertHours: number; comment?: string }[]
+}
+
+export interface SubmitTimeRequest {
+  projectId: string
+  year: number
+  month: number
+}

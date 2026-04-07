@@ -28,6 +28,31 @@ const CATEGORY_OPTIONS = [
   { id: 'governance', label: 'Governance' },
 ]
 
+async function extractPdfText(file: File) {
+  const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs')
+  const pdf = await pdfjs.getDocument({
+    data: new Uint8Array(await file.arrayBuffer()),
+    disableWorker: true,
+  } as never).promise
+  const pages = await Promise.all(
+    Array.from({ length: pdf.numPages }, async (_, index) => {
+      const page = await pdf.getPage(index + 1)
+      const textContent = await page.getTextContent()
+
+      return textContent.items
+        .map(item => ('str' in item ? item.str : ''))
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+    })
+  )
+
+  return pages
+    .filter(Boolean)
+    .map((pageText, index) => `Seite ${index + 1}: ${pageText}`)
+    .join('\n\n')
+}
+
 export default function ProjectKnowledgePage() {
   const { id } = useParams<{ id: string }>()
   const qc = useQueryClient()
@@ -142,9 +167,13 @@ export default function ProjectKnowledgePage() {
         const result = await mammoth.extractRawText({ arrayBuffer: await file.arrayBuffer() })
         text = result.value.trim()
       } else if (lowerName.endsWith('.pdf')) {
-        throw new Error('PDF-Parsing folgt im naechsten Schritt. Fuer jetzt bitte TXT, MD oder DOCX verwenden.')
+        text = await extractPdfText(file)
       } else {
         throw new Error('Dateityp wird fuer die erste Knowledge-Version noch nicht unterstuetzt.')
+      }
+
+      if (!text) {
+        throw new Error('Die Datei enthaelt keinen auslesbaren Text.')
       }
 
       setUploadFileName(file.name)
@@ -197,11 +226,11 @@ export default function ProjectKnowledgePage() {
               </select>
             </div>
             <div className="rounded-lg border border-dashed border-gray-700 bg-gray-900/60 p-4">
-              <p className="text-sm text-gray-300">TXT, MD und DOCX direkt einlesen und als versionierbares Projektwissen speichern. PDF folgt im naechsten Ausbauschritt.</p>
+              <p className="text-sm text-gray-300">TXT, MD, DOCX und jetzt auch PDF direkt einlesen und als versionierbares Projektwissen speichern.</p>
               <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-lg bg-gray-800 px-3 py-2 text-sm text-white hover:bg-gray-700">
                 {parsingFile ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
                 Datei auswaehlen
-                <input type="file" className="hidden" accept=".txt,.md,.docx" onChange={handleFileChange} />
+                <input type="file" className="hidden" accept=".txt,.md,.docx,.pdf" onChange={handleFileChange} />
               </label>
               <p className="mt-2 text-xs text-gray-500">{uploadFileName || 'Noch keine Datei geladen.'}</p>
             </div>

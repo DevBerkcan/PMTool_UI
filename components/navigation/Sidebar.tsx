@@ -17,10 +17,14 @@ import {
   ShieldCheck,
   Upload,
   History,
+  Clock,
 } from 'lucide-react'
 import { useAuthStore } from '@/lib/store/authStore'
 import { useAccessMatrix } from '@/lib/hooks/useAccessMatrix'
 import { isEntraConfigured, logoutEntra } from '@/lib/entra/client'
+import { useQuery } from '@tanstack/react-query'
+import { api } from '@/lib/api'
+import type { TimeEntryNotificationDto } from '@/types'
 import toast from 'react-hot-toast'
 
 export function Sidebar() {
@@ -28,6 +32,15 @@ export function Sidebar() {
   const router = useRouter()
   const { user, authProvider, logout } = useAuthStore()
   const { can } = useAccessMatrix()
+  const isManager = ['Admin', 'Management', 'PMO', 'Projektleiter'].includes(user?.role ?? '')
+
+  const { data: notifications = [] } = useQuery<TimeEntryNotificationDto[]>({
+    queryKey: ['time-notifications'],
+    queryFn: () => api.timeEntries.getNotifications(),
+    refetchInterval: 60_000,
+    enabled: isManager,
+  })
+  const unreadTimeCount = (notifications as TimeEntryNotificationDto[]).filter(n => !n.isRead).length
 
   const handleLogout = async () => {
     logout()
@@ -43,6 +56,7 @@ export function Sidebar() {
   const nav = [
     { href: '/', icon: LayoutDashboard, label: 'Portfolio', section: 'main', visible: true },
     { href: '/analytics', icon: BarChart3, label: 'Analytics', section: 'main', visible: true },
+    { href: '/time', icon: Clock, label: 'Zeiterfassung', section: 'main', visible: true },
     { href: '/resources', icon: Users, label: 'Ressourcen', section: 'main', visible: true },
     { href: '/team', icon: FolderKanban, label: 'Team', section: 'main', visible: can('manageTeam') },
     { href: '/governance', icon: ShieldCheck, label: 'Governance', section: 'main', visible: can('managePmo') },
@@ -71,6 +85,7 @@ export function Sidebar() {
           </p>
           {mainNav.map(({ href, icon: Icon, label }) => {
             const active = path === href
+            const badge = href === '/time' && isManager && unreadTimeCount > 0 ? unreadTimeCount : 0
             return (
               <Link key={href} href={href}>
                 <motion.div
@@ -80,7 +95,12 @@ export function Sidebar() {
                 >
                   <Icon className="w-4 h-4 flex-shrink-0" />
                   {label}
-                  {active && <ChevronRight className="w-3 h-3 ml-auto text-blue-400" />}
+                  {badge > 0 && (
+                    <span className="ml-auto flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
+                      {badge}
+                    </span>
+                  )}
+                  {active && badge === 0 && <ChevronRight className="w-3 h-3 ml-auto text-blue-400" />}
                 </motion.div>
               </Link>
             )

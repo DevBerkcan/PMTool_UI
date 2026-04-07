@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { AccessMatrix, Activity, AiLearningSummary, AiSuggestion, AiSuggestionFeedback, ApplyAiSuggestionResponse, AuditEntry, EntraIntegrationStatus, GovernanceOverview, GraphAuthStart, GraphIntegrationStatus, ImportAnalyzeResponse, ImportCommitResponse, JiraIntegrationStatus, JiraProjectTickets, MeetingAnalyzeResponse, MeetingCommitResponse, PortfolioBriefing, PortfolioEscalationOverview, PortfolioSummary, Project, ProjectAiAnswer, ProjectApproval, ProjectDecision, ProjectDetail, ProjectDocument, ProjectForecast, ProjectForecastSnapshot, ProjectGovernanceCheck, ProjectJiraLink, ProjectKnowledgeHub, ProjectKnowledgeItem, ProjectLeadTask, ProjectMilestone, ProjectNote, ProjectStageGate, ProjectStageGateCheck, ProjectTeamMember, ProjectTeamsLink, Risk, RiskSignal, Task, TeamMember, WeeklyStatus } from '@/types'
+import type { AccessMatrix, Activity, AiLearningSummary, AiSuggestion, AiSuggestionFeedback, ApplyAiSuggestionResponse, AuditEntry, BulkSaveRequest, EntraIntegrationStatus, GovernanceOverview, GraphAuthStart, GraphIntegrationStatus, ImportAnalyzeResponse, ImportCommitResponse, JiraIntegrationStatus, JiraProjectTickets, MeetingAnalyzeResponse, MeetingCommitResponse, MyProjectDto, PortfolioBriefing, PortfolioEscalationOverview, PortfolioSummary, Project, ProjectAiAnswer, ProjectApproval, ProjectDecision, ProjectDetail, ProjectDocument, ProjectForecast, ProjectForecastSnapshot, ProjectGovernanceCheck, ProjectJiraLink, ProjectKnowledgeHub, ProjectKnowledgeItem, ProjectLeadTask, ProjectMilestone, ProjectNote, ProjectStageGate, ProjectStageGateCheck, ProjectTeamMember, ProjectTeamsLink, Risk, RiskSignal, SubmitTimeRequest, Task, TeamMember, TimeEntriesResponse, TimeEntryDashboardRow, TimeEntryNotificationDto, WeeklyStatus } from '@/types'
 
 interface LoginResponse {
   token: string
@@ -210,6 +210,24 @@ export const api = {
     analyzeMeeting: (data: unknown) => post<MeetingAnalyzeResponse>('/imports/meetings/analyze', data),
     commitMeeting: (data: unknown) => post<MeetingCommitResponse>('/imports/meetings/commit', data),
   },
+  timeEntries: {
+    getEntries: (projectId: string, year: number, month: number) =>
+      get<TimeEntriesResponse>(`/time-entries?projectId=${projectId}&year=${year}&month=${month}`),
+    saveBulk: (data: BulkSaveRequest) =>
+      put<{ message: string }>('/time-entries/bulk', data),
+    submit: (data: SubmitTimeRequest) =>
+      post<{ message: string }>('/time-entries/submit', data),
+    getDashboard: (year: number, month: number) =>
+      get<TimeEntryDashboardRow[]>(`/time-entries/dashboard?year=${year}&month=${month}`),
+    getMyProjects: () =>
+      get<MyProjectDto[]>('/time-entries/my-projects'),
+    getNotifications: () =>
+      get<TimeEntryNotificationDto[]>('/time-entries/notifications'),
+    markRead: (id: string) =>
+      post<void>(`/time-entries/notifications/${id}/read`, {}),
+    markAllRead: () =>
+      post<{ count: number }>('/time-entries/notifications/read-all', {}),
+  },
   reports: {
     exportAuditCsv: (params?: { entityType?: string; projectId?: string; userRole?: string; changeType?: string; dateFrom?: string; dateTo?: string }) =>
       get<Blob>('/reports/audit.csv', { params, responseType: 'blob' }),
@@ -219,5 +237,9 @@ export const api = {
       get<Blob>(`/reports/projects/${pid}/forecast.csv`, { responseType: 'blob' }),
     exportForecastPdf: (pid: string) =>
       get<Blob>(`/reports/projects/${pid}/forecast.pdf`, { responseType: 'blob' }),
+    exportTimeEntriesCsv: (params: { projectId?: string; year?: number; month?: number }) =>
+      get<Blob>('/reports/time-entries.csv', { params, responseType: 'blob' }),
+    exportTimeEntriesPdf: (params: { projectId?: string; year?: number; month?: number }) =>
+      get<Blob>('/reports/time-entries.pdf', { params, responseType: 'blob' }),
   },
 }
