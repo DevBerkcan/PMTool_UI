@@ -37,6 +37,21 @@ export interface ProjectNote {
   content: string
   authorName: string
   createdAt: string
+  category: string        // general | meeting | status | decision
+  participants: string
+  meetingDate?: string | null
+  isPinned: boolean
+}
+
+export interface ProjectContact {
+  id: string
+  name: string
+  email: string
+  phone: string
+  company: string
+  role: string
+  supervisor: string
+  notes: string
 }
 
 export interface ProjectLeadTask {
@@ -255,6 +270,8 @@ export interface ProjectDetail extends Project {
   knowledgeItems: ProjectKnowledgeItem[]
   teamsLink?: ProjectTeamsLink | null
   jiraLink?: ProjectJiraLink | null
+  contacts: ProjectContact[]
+  meetings?: ProjectMeeting[]
 }
 
 export interface Task {
@@ -701,4 +718,21 @@ export interface SubmitTimeRequest {
   projectId: string
   year: number
   month: number
+}
+
+export interface ProjectMeeting {
+  id: string
+  title: string
+  meetingDate: string
+  participants: string
+  location: string
+  teamsJoinUrl: string
+  teamsOnlineMeetingId: string
+  transcriptSource: 'none' | 'manual' | 'graph'
+  transcriptFetchedAt?: string | null
+  extractionStatus: 'none' | 'pending' | 'extracted'
+  notes: string
+  createdByName: string
+  createdAt: string
+  hasTranscript: boolean
 }

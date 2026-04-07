@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { AccessMatrix, Activity, AiLearningSummary, AiSuggestion, AiSuggestionFeedback, ApplyAiSuggestionResponse, AuditEntry, BulkSaveRequest, EntraIntegrationStatus, GovernanceOverview, GraphAuthStart, GraphIntegrationStatus, ImportAnalyzeResponse, ImportCommitResponse, JiraIntegrationStatus, JiraProjectTickets, MeetingAnalyzeResponse, MeetingCommitResponse, MyProjectDto, PortfolioBriefing, PortfolioEscalationOverview, PortfolioSummary, Project, ProjectAiAnswer, ProjectApproval, ProjectDecision, ProjectDetail, ProjectDocument, ProjectForecast, ProjectForecastSnapshot, ProjectGovernanceCheck, ProjectJiraLink, ProjectKnowledgeHub, ProjectKnowledgeItem, ProjectLeadTask, ProjectMilestone, ProjectNote, ProjectStageGate, ProjectStageGateCheck, ProjectTeamMember, ProjectTeamsLink, Risk, RiskSignal, SubmitTimeRequest, Task, TeamMember, TimeEntriesResponse, TimeEntryDashboardRow, TimeEntryNotificationDto, WeeklyStatus } from '@/types'
+import type { AccessMatrix, Activity, AiLearningSummary, AiSuggestion, AiSuggestionFeedback, ApplyAiSuggestionResponse, AuditEntry, BulkSaveRequest, EntraIntegrationStatus, GovernanceOverview, GraphAuthStart, GraphIntegrationStatus, ImportAnalyzeResponse, ImportCommitResponse, JiraIntegrationStatus, JiraProjectTickets, MeetingAnalyzeResponse, MeetingCommitResponse, MyProjectDto, PortfolioBriefing, PortfolioEscalationOverview, PortfolioSummary, Project, ProjectAiAnswer, ProjectApproval, ProjectContact, ProjectDecision, ProjectDetail, ProjectDocument, ProjectForecast, ProjectForecastSnapshot, ProjectGovernanceCheck, ProjectJiraLink, ProjectKnowledgeHub, ProjectKnowledgeItem, ProjectLeadTask, ProjectMeeting, ProjectMilestone, ProjectNote, ProjectStageGate, ProjectStageGateCheck, ProjectTeamMember, ProjectTeamsLink, Risk, RiskSignal, SubmitTimeRequest, Task, TeamMember, TimeEntriesResponse, TimeEntryDashboardRow, TimeEntryNotificationDto, WeeklyStatus } from '@/types'
 
 interface LoginResponse {
   token: string
@@ -88,6 +88,12 @@ export const api = {
     removeTeamMember: (id: string, userId: string) => del<void>(`/projects/${id}/team/${userId}`),
     getNotes: (id: string) => get<ProjectNote[]>(`/projects/${id}/notes`),
     createNote: (id: string, data: unknown) => post<ProjectNote>(`/projects/${id}/notes`, data),
+    updateNote: (id: string, noteId: string, data: unknown) => put<ProjectNote>(`/projects/${id}/notes/${noteId}`, data),
+    deleteNote: (id: string, noteId: string) => del<void>(`/projects/${id}/notes/${noteId}`),
+    getContacts: (id: string) => get<ProjectContact[]>(`/projects/${id}/contacts`),
+    createContact: (id: string, data: unknown) => post<ProjectContact>(`/projects/${id}/contacts`, data),
+    updateContact: (id: string, contactId: string, data: unknown) => put<ProjectContact>(`/projects/${id}/contacts/${contactId}`, data),
+    deleteContact: (id: string, contactId: string) => del<void>(`/projects/${id}/contacts/${contactId}`),
     getLeadTasks: (id: string) => get<ProjectLeadTask[]>(`/projects/${id}/lead-tasks`),
     createLeadTask: (id: string, data: unknown) => post<ProjectLeadTask>(`/projects/${id}/lead-tasks`, data),
     updateLeadTaskStatus: (id: string, taskId: string, status: string) =>
@@ -127,6 +133,16 @@ export const api = {
     upsertTeamsLink: (id: string, data: unknown) => put<ProjectTeamsLink>(`/projects/${id}/teams-link`, data),
     getJiraLink: (id: string) => get<ProjectJiraLink | null>(`/projects/${id}/jira-link`),
     upsertJiraLink: (id: string, data: unknown) => put<ProjectJiraLink>(`/projects/${id}/jira-link`, data),
+    getMeetings: (id: string) => get<ProjectMeeting[]>(`/projects/${id}/meetings`),
+    createMeeting: (id: string, data: unknown) => post<ProjectMeeting>(`/projects/${id}/meetings`, data),
+    updateMeeting: (id: string, meetingId: string, data: unknown) => put<ProjectMeeting>(`/projects/${id}/meetings/${meetingId}`, data),
+    deleteMeeting: (id: string, meetingId: string) => del<void>(`/projects/${id}/meetings/${meetingId}`),
+    addTranscript: (id: string, meetingId: string, transcriptText: string) =>
+      post<ProjectMeeting>(`/projects/${id}/meetings/${meetingId}/transcript`, { transcriptText }),
+    fetchTranscript: (id: string, meetingId: string) =>
+      post<ProjectMeeting>(`/projects/${id}/meetings/${meetingId}/transcript/fetch`, {}),
+    extractMeeting: (id: string, meetingId: string) =>
+      post<{ createdTasks: number; createdDecisions: number; createdRisks: number; createdKnowledgeItems: number; summary: string }>(`/projects/${id}/meetings/${meetingId}/extract`, {}),
   },
   tasks: {
     getByProject: (pid: string) => get<Task[]>(`/projects/${pid}/tasks`),
@@ -198,6 +214,7 @@ export const api = {
   integrations: {
     getGraphStatus: () => get<GraphIntegrationStatus>('/integrations/graph/status'),
     getGraphAuthStart: () => get<GraphAuthStart>('/integrations/graph/auth/start'),
+    getGraphTokenStatus: () => get<{ hasValidToken: boolean; expiresAt?: string }>('/integrations/graph/token-status'),
     getJiraStatus: () => get<JiraIntegrationStatus>('/integrations/jira/status'),
   },
   jira: {

@@ -20,17 +20,26 @@ import {
   GitMerge,
   Lightbulb,
   Loader2,
+  Mail,
+  MessageSquare,
+  Mic,
+  Pencil,
+  Phone,
+  Pin,
   Plus,
   Scale,
   ShieldCheck,
   Stamp,
+  Trash2,
   TrendingUp,
   Users,
+  UserSquare2,
+  X,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { api } from '@/lib/api'
 import { useAccessMatrix } from '@/lib/hooks/useAccessMatrix'
-import type { Activity as ActivityItem, AuditEntry, ProjectDetail, ProjectForecastSnapshot } from '@/types'
+import type { Activity as ActivityItem, AuditEntry, ProjectContact, ProjectDetail, ProjectForecastSnapshot, ProjectMeeting, ProjectNote } from '@/types'
 
 const CATEGORY_LABEL: Record<string, string> = {
   product: 'Produkt',
@@ -73,6 +82,34 @@ export default function ProjectDetailPage() {
   const qc = useQueryClient()
   const [noteTitle, setNoteTitle] = useState('')
   const [noteContent, setNoteContent] = useState('')
+  const [noteCategory, setNoteCategory] = useState('general')
+  const [noteParticipants, setNoteParticipants] = useState('')
+  const [noteMeetingDate, setNoteMeetingDate] = useState('')
+  const [editingNote, setEditingNote] = useState<ProjectNote | null>(null)
+  // contacts
+  const [showContactForm, setShowContactForm] = useState(false)
+  const [editingContact, setEditingContact] = useState<ProjectContact | null>(null)
+  const [contactName, setContactName] = useState('')
+  const [contactEmail, setContactEmail] = useState('')
+  const [contactPhone, setContactPhone] = useState('')
+  const [contactCompany, setContactCompany] = useState('')
+  const [contactRole, setContactRole] = useState('')
+  const [contactSupervisor, setContactSupervisor] = useState('')
+  const [contactNotes, setContactNotes] = useState('')
+  // meetings
+  const [showMeetingForm, setShowMeetingForm] = useState(false)
+  const [editingMeeting, setEditingMeeting] = useState<ProjectMeeting | null>(null)
+  const [meetingTitle, setMeetingTitle] = useState('')
+  const [meetingDate, setMeetingDate] = useState('')
+  const [meetingParticipants, setMeetingParticipants] = useState('')
+  const [meetingLocation, setMeetingLocation] = useState('')
+  const [meetingTeamsUrl, setMeetingTeamsUrl] = useState('')
+  const [meetingTeamsId, setMeetingTeamsId] = useState('')
+  const [meetingNotes, setMeetingNotes] = useState('')
+  const [transcriptInputId, setTranscriptInputId] = useState<string | null>(null)
+  const [transcriptText, setTranscriptText] = useState('')
+  const [extractingMeetingId, setExtractingMeetingId] = useState<string | null>(null)
+  const [extractResult, setExtractResult] = useState<Record<string, { tasks: number; decisions: number; risks: number; knowledge: number; summary: string }>>({})
   const [leadTaskTitle, setLeadTaskTitle] = useState('')
   const [milestoneTitle, setMilestoneTitle] = useState('')
   const [decisionTitle, setDecisionTitle] = useState('')
@@ -151,14 +188,156 @@ export default function ProjectDetailPage() {
   }
 
   const createNote = useMutation({
-    mutationFn: () => api.projects.createNote(id, { title: noteTitle, content: noteContent }),
+    mutationFn: () => api.projects.createNote(id, {
+      title: noteTitle, content: noteContent,
+      category: noteCategory,
+      participants: noteParticipants,
+      meetingDate: noteMeetingDate || null,
+    }),
     onSuccess: async () => {
-      setNoteTitle('')
-      setNoteContent('')
+      setNoteTitle(''); setNoteContent(''); setNoteCategory('general')
+      setNoteParticipants(''); setNoteMeetingDate('')
       await invalidateProject()
       toast.success('Notiz erstellt')
     },
     onError: (err: Error) => toast.error(err.message),
+  })
+
+  const updateNote = useMutation({
+    mutationFn: (note: ProjectNote) => api.projects.updateNote(id, note.id, {
+      title: note.title, content: note.content,
+      category: note.category, participants: note.participants,
+      meetingDate: note.meetingDate || null, isPinned: note.isPinned,
+    }),
+    onSuccess: async () => { setEditingNote(null); await invalidateProject(); toast.success('Notiz gespeichert') },
+    onError: (err: Error) => toast.error(err.message),
+  })
+
+  const deleteNote = useMutation({
+    mutationFn: (noteId: string) => api.projects.deleteNote(id, noteId),
+    onSuccess: async () => { await invalidateProject(); toast.success('Notiz gelöscht') },
+    onError: (err: Error) => toast.error(err.message),
+  })
+
+  const togglePin = useMutation({
+    mutationFn: (note: ProjectNote) => api.projects.updateNote(id, note.id, {
+      title: note.title, content: note.content, category: note.category,
+      participants: note.participants, meetingDate: note.meetingDate || null, isPinned: !note.isPinned,
+    }),
+    onSuccess: async () => { await invalidateProject() },
+  })
+
+  function resetContactForm() {
+    setContactName(''); setContactEmail(''); setContactPhone('')
+    setContactCompany(''); setContactRole(''); setContactSupervisor(''); setContactNotes('')
+    setEditingContact(null); setShowContactForm(false)
+  }
+
+  function openEditContact(c: ProjectContact) {
+    setContactName(c.name); setContactEmail(c.email); setContactPhone(c.phone)
+    setContactCompany(c.company); setContactRole(c.role); setContactSupervisor(c.supervisor)
+    setContactNotes(c.notes); setEditingContact(c); setShowContactForm(true)
+  }
+
+  const saveContact = useMutation({
+    mutationFn: () => {
+      const data = { name: contactName, email: contactEmail, phone: contactPhone,
+        company: contactCompany, role: contactRole, supervisor: contactSupervisor, notes: contactNotes }
+      return editingContact
+        ? api.projects.updateContact(id, editingContact.id, data)
+        : api.projects.createContact(id, data)
+    },
+    onSuccess: async () => { resetContactForm(); await invalidateProject(); toast.success('Kontakt gespeichert') },
+    onError: (err: Error) => toast.error(err.message),
+  })
+
+  const deleteContact = useMutation({
+    mutationFn: (contactId: string) => api.projects.deleteContact(id, contactId),
+    onSuccess: async () => { await invalidateProject(); toast.success('Kontakt gelöscht') },
+    onError: (err: Error) => toast.error(err.message),
+  })
+
+  const { data: meetings = [], refetch: refetchMeetings } = useQuery<ProjectMeeting[]>({
+    queryKey: ['project-meetings', id],
+    queryFn: () => api.projects.getMeetings(id),
+    enabled: !!id,
+  })
+
+  const { data: graphTokenStatus } = useQuery<{ hasValidToken: boolean }>({
+    queryKey: ['graph-token-status'],
+    queryFn: () => api.integrations.getGraphTokenStatus(),
+  })
+
+  function resetMeetingForm() {
+    setMeetingTitle(''); setMeetingDate(''); setMeetingParticipants('')
+    setMeetingLocation(''); setMeetingTeamsUrl(''); setMeetingTeamsId(''); setMeetingNotes('')
+    setEditingMeeting(null); setShowMeetingForm(false)
+  }
+
+  function openEditMeeting(m: ProjectMeeting) {
+    setMeetingTitle(m.title)
+    setMeetingDate(m.meetingDate.slice(0, 16))
+    setMeetingParticipants(m.participants)
+    setMeetingLocation(m.location)
+    setMeetingTeamsUrl(m.teamsJoinUrl)
+    setMeetingTeamsId(m.teamsOnlineMeetingId)
+    setMeetingNotes(m.notes)
+    setEditingMeeting(m)
+    setShowMeetingForm(true)
+  }
+
+  const saveMeeting = useMutation({
+    mutationFn: () => {
+      const data = {
+        title: meetingTitle,
+        meetingDate: meetingDate ? new Date(meetingDate).toISOString() : new Date().toISOString(),
+        participants: meetingParticipants,
+        location: meetingLocation,
+        teamsJoinUrl: meetingTeamsUrl,
+        teamsOnlineMeetingId: meetingTeamsId,
+        notes: meetingNotes,
+      }
+      return editingMeeting
+        ? api.projects.updateMeeting(id, editingMeeting.id, data)
+        : api.projects.createMeeting(id, data)
+    },
+    onSuccess: async () => { resetMeetingForm(); await refetchMeetings(); toast.success('Termin gespeichert') },
+    onError: (err: Error) => toast.error(err.message),
+  })
+
+  const deleteMeeting = useMutation({
+    mutationFn: (meetingId: string) => api.projects.deleteMeeting(id, meetingId),
+    onSuccess: async () => { await refetchMeetings(); toast.success('Termin gelöscht') },
+    onError: (err: Error) => toast.error(err.message),
+  })
+
+  const addTranscript = useMutation({
+    mutationFn: ({ meetingId, text }: { meetingId: string; text: string }) =>
+      api.projects.addTranscript(id, meetingId, text),
+    onSuccess: async () => {
+      setTranscriptInputId(null); setTranscriptText('')
+      await refetchMeetings(); toast.success('Transkript gespeichert')
+    },
+    onError: (err: Error) => toast.error(err.message),
+  })
+
+  const fetchTranscript = useMutation({
+    mutationFn: (meetingId: string) => api.projects.fetchTranscript(id, meetingId),
+    onSuccess: async () => { await refetchMeetings(); toast.success('Transkript von Teams geladen') },
+    onError: (err: Error) => toast.error(err.message),
+  })
+
+  const extractMeeting = useMutation({
+    mutationFn: (meetingId: string) => api.projects.extractMeeting(id, meetingId),
+    onMutate: (meetingId) => setExtractingMeetingId(meetingId),
+    onSuccess: async (result, meetingId) => {
+      setExtractingMeetingId(null)
+      setExtractResult(prev => ({ ...prev, [meetingId]: { tasks: result.createdTasks, decisions: result.createdDecisions, risks: result.createdRisks, knowledge: result.createdKnowledgeItems, summary: result.summary } }))
+      await refetchMeetings()
+      await invalidateProject()
+      toast.success('Analyse abgeschlossen')
+    },
+    onError: (err: Error) => { setExtractingMeetingId(null); toast.error(err.message) },
   })
 
   const createLeadTask = useMutation({
@@ -763,24 +942,314 @@ export default function ProjectDetailPage() {
             </div>
           </div>
 
+          {/* ── NOTIZEN ─────────────────────────────────────────── */}
           <div className="card p-5">
-            <div className="flex items-center gap-2 mb-4"><FileText className="w-4 h-4 text-blue-400" /><h2 className="font-semibold text-white">Notizen</h2></div>
-            <div className="space-y-2 mb-4">
-              <input value={noteTitle} onChange={event => setNoteTitle(event.target.value)} placeholder="Titel..." className="input text-sm" />
-              <textarea value={noteContent} onChange={event => setNoteContent(event.target.value)} placeholder="Projektinformation oder Notiz festhalten..." className="input min-h-28 py-3" />
-              <button onClick={() => noteTitle.trim() && noteContent.trim() && createNote.mutate()} className="btn-primary w-full">Notiz erstellen</button>
+            <div className="flex items-center gap-2 mb-4">
+              <FileText className="w-4 h-4 text-blue-400" />
+              <h2 className="font-semibold text-white">Notizen</h2>
+              <span className="ml-auto text-xs text-gray-500">{project.notes.length} Einträge</span>
             </div>
+
+            {/* Create form */}
+            <div className="space-y-2 mb-5 border border-gray-700 rounded-lg p-3 bg-gray-800/40">
+              <div className="flex gap-2">
+                <select value={noteCategory} onChange={e => setNoteCategory(e.target.value)} className="input text-sm flex-1">
+                  <option value="general">📝 Allgemein</option>
+                  <option value="meeting">👥 Meeting-Protokoll</option>
+                  <option value="status">📊 Statusupdate</option>
+                  <option value="decision">✅ Entscheidung</option>
+                </select>
+                {noteCategory === 'meeting' && (
+                  <input type="date" value={noteMeetingDate} onChange={e => setNoteMeetingDate(e.target.value)} className="input text-sm w-40" />
+                )}
+              </div>
+              <input value={noteTitle} onChange={e => setNoteTitle(e.target.value)} placeholder="Titel..." className="input text-sm" />
+              {noteCategory === 'meeting' && (
+                <input value={noteParticipants} onChange={e => setNoteParticipants(e.target.value)} placeholder="Teilnehmer (kommagetrennt)..." className="input text-sm" />
+              )}
+              <textarea value={noteContent} onChange={e => setNoteContent(e.target.value)} placeholder="Notiz festhalten..." className="input min-h-24 py-3" />
+              <button onClick={() => noteTitle.trim() && noteContent.trim() && createNote.mutate()} disabled={createNote.isPending} className="btn-primary w-full text-sm">
+                {createNote.isPending ? 'Wird erstellt...' : 'Notiz erstellen'}
+              </button>
+            </div>
+
+            {/* Note list */}
             <div className="space-y-3">
               {project.notes.map(note => (
-                <div key={note.id} className="bg-gray-800/60 rounded-lg p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div><p className="text-sm font-medium text-white">{note.title}</p><p className="text-xs text-gray-500 mt-1">{note.authorName}</p></div>
-                    <span className="text-xs text-gray-500">{new Date(note.createdAt).toLocaleDateString('de-DE', { day: '2-digit', month: 'short' })}</span>
-                  </div>
-                  <p className="text-sm text-gray-300 mt-3">{note.content}</p>
+                <div key={note.id} className={`rounded-lg p-4 border ${note.isPinned ? 'border-yellow-500/40 bg-yellow-900/10' : 'border-gray-700/50 bg-gray-800/60'}`}>
+                  {editingNote?.id === note.id ? (
+                    /* Inline edit mode */
+                    <div className="space-y-2">
+                      <select value={editingNote.category} onChange={e => setEditingNote({...editingNote, category: e.target.value})} className="input text-sm w-full">
+                        <option value="general">📝 Allgemein</option>
+                        <option value="meeting">👥 Meeting-Protokoll</option>
+                        <option value="status">📊 Statusupdate</option>
+                        <option value="decision">✅ Entscheidung</option>
+                      </select>
+                      <input value={editingNote.title} onChange={e => setEditingNote({...editingNote, title: e.target.value})} className="input text-sm w-full" />
+                      {editingNote.category === 'meeting' && (
+                        <input value={editingNote.participants} onChange={e => setEditingNote({...editingNote, participants: e.target.value})} placeholder="Teilnehmer..." className="input text-sm w-full" />
+                      )}
+                      <textarea value={editingNote.content} onChange={e => setEditingNote({...editingNote, content: e.target.value})} className="input text-sm w-full min-h-20" />
+                      <div className="flex gap-2">
+                        <button onClick={() => updateNote.mutate(editingNote)} disabled={updateNote.isPending} className="btn-primary text-xs px-3 py-1.5">Speichern</button>
+                        <button onClick={() => setEditingNote(null)} className="btn-ghost text-xs px-3 py-1.5">Abbrechen</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-gray-700 text-gray-300">
+                            {note.category === 'meeting' ? '👥 Meeting' : note.category === 'status' ? '📊 Status' : note.category === 'decision' ? '✅ Entscheidung' : '📝 Allgemein'}
+                          </span>
+                          {note.isPinned && <span className="text-xs text-yellow-400">📌 Angepinnt</span>}
+                          <p className="text-sm font-medium text-white">{note.title}</p>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <button onClick={() => togglePin.mutate(note)} title={note.isPinned ? 'Entpinnen' : 'Anpinnen'} className="p-1 text-gray-500 hover:text-yellow-400 transition-colors">
+                            <Pin className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => setEditingNote(note)} className="p-1 text-gray-500 hover:text-blue-400 transition-colors">
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => deleteNote.mutate(note.id)} className="p-1 text-gray-500 hover:text-red-400 transition-colors">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                      {note.category === 'meeting' && note.participants && (
+                        <p className="text-xs text-gray-500 mt-1 flex items-center gap-1">
+                          <Users className="w-3 h-3" /> {note.participants}
+                          {note.meetingDate && <span className="ml-2">· {new Date(note.meetingDate).toLocaleDateString('de-DE')}</span>}
+                        </p>
+                      )}
+                      <p className="text-sm text-gray-300 mt-2 whitespace-pre-wrap">{note.content}</p>
+                      <p className="text-xs text-gray-600 mt-2">{note.authorName} · {new Date(note.createdAt).toLocaleDateString('de-DE', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                    </>
+                  )}
                 </div>
               ))}
             </div>
+          </div>
+
+          {/* ── PROJEKTKONTAKTE ──────────────────────────────────── */}
+          <div className="card p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <UserSquare2 className="w-4 h-4 text-blue-400" />
+                <h2 className="font-semibold text-white">Projektkontakte</h2>
+                <span className="text-xs text-gray-500">{project.contacts.length} Kontakte</span>
+              </div>
+              {!showContactForm && (
+                <button onClick={() => setShowContactForm(true)} className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors">
+                  <Plus className="w-3.5 h-3.5" /> Hinzufügen
+                </button>
+              )}
+            </div>
+
+            {/* Contact form */}
+            {showContactForm && (
+              <div className="mb-5 border border-gray-700 rounded-lg p-4 bg-gray-800/40 space-y-2">
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-sm font-medium text-white">{editingContact ? 'Kontakt bearbeiten' : 'Neuer Kontakt'}</p>
+                  <button onClick={resetContactForm} className="text-gray-500 hover:text-white"><X className="w-4 h-4" /></button>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <input value={contactName} onChange={e => setContactName(e.target.value)} placeholder="Name *" className="input text-sm col-span-2" />
+                  <input value={contactRole} onChange={e => setContactRole(e.target.value)} placeholder="Rolle / Position" className="input text-sm" />
+                  <input value={contactCompany} onChange={e => setContactCompany(e.target.value)} placeholder="Firma" className="input text-sm" />
+                  <input value={contactEmail} onChange={e => setContactEmail(e.target.value)} placeholder="E-Mail" type="email" className="input text-sm" />
+                  <input value={contactPhone} onChange={e => setContactPhone(e.target.value)} placeholder="Telefon" className="input text-sm" />
+                  <input value={contactSupervisor} onChange={e => setContactSupervisor(e.target.value)} placeholder="Vorgesetzter" className="input text-sm col-span-2" />
+                  <textarea value={contactNotes} onChange={e => setContactNotes(e.target.value)} placeholder="Notiz zum Kontakt..." className="input text-sm col-span-2 min-h-16" />
+                </div>
+                <button onClick={() => contactName.trim() && saveContact.mutate()} disabled={saveContact.isPending || !contactName.trim()} className="btn-primary w-full text-sm">
+                  {saveContact.isPending ? 'Wird gespeichert...' : editingContact ? 'Speichern' : 'Kontakt hinzufügen'}
+                </button>
+              </div>
+            )}
+
+            {/* Contact list */}
+            {project.contacts.length === 0 && !showContactForm ? (
+              <p className="text-sm text-gray-500 text-center py-4">Noch keine Kontakte gepflegt.</p>
+            ) : (
+              <div className="space-y-3">
+                {project.contacts.map(c => (
+                  <div key={c.id} className="rounded-lg border border-gray-700/50 bg-gray-800/60 p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold text-white">{c.name}</p>
+                          {c.role && <span className="text-xs px-2 py-0.5 rounded-full bg-blue-900/40 text-blue-300">{c.role}</span>}
+                          {c.company && <span className="text-xs text-gray-400">{c.company}</span>}
+                        </div>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+                          {c.email && (
+                            <a href={`mailto:${c.email}`} className="flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 transition-colors">
+                              <Mail className="w-3 h-3" />{c.email}
+                            </a>
+                          )}
+                          {c.phone && (
+                            <a href={`tel:${c.phone}`} className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-colors">
+                              <Phone className="w-3 h-3" />{c.phone}
+                            </a>
+                          )}
+                          {c.supervisor && (
+                            <span className="flex items-center gap-1 text-xs text-gray-500">
+                              <MessageSquare className="w-3 h-3" />Vorgesetzter: {c.supervisor}
+                            </span>
+                          )}
+                        </div>
+                        {c.notes && <p className="text-xs text-gray-500 mt-2 italic">{c.notes}</p>}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button onClick={() => openEditContact(c)} className="p-1 text-gray-500 hover:text-blue-400 transition-colors">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => deleteContact.mutate(c.id)} className="p-1 text-gray-500 hover:text-red-400 transition-colors">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* ─── Termine ─── */}
+          <div className="card p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-semibold text-white flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-blue-400" /> Termine
+              </h2>
+              <button onClick={() => { resetMeetingForm(); setShowMeetingForm(true) }} className="btn-ghost text-xs flex items-center gap-1">
+                <Plus className="w-3.5 h-3.5" /> Neu
+              </button>
+            </div>
+
+            {showMeetingForm && (
+              <div className="rounded-lg border border-gray-700/50 bg-gray-800/60 p-4 mb-4 space-y-2">
+                <input value={meetingTitle} onChange={e => setMeetingTitle(e.target.value)} placeholder="Titel des Termins..." className="input text-sm" />
+                <input type="datetime-local" value={meetingDate} onChange={e => setMeetingDate(e.target.value)} className="input text-sm" />
+                <input value={meetingParticipants} onChange={e => setMeetingParticipants(e.target.value)} placeholder="Teilnehmer (kommagetrennt)..." className="input text-sm" />
+                <input value={meetingLocation} onChange={e => setMeetingLocation(e.target.value)} placeholder="Ort / Raum..." className="input text-sm" />
+                <input value={meetingTeamsUrl} onChange={e => setMeetingTeamsUrl(e.target.value)} placeholder="Teams Join-URL (optional)..." className="input text-sm" />
+                <input value={meetingTeamsId} onChange={e => setMeetingTeamsId(e.target.value)} placeholder="Teams Meeting-ID (für Transkript)..." className="input text-sm" />
+                <textarea value={meetingNotes} onChange={e => setMeetingNotes(e.target.value)} placeholder="Notizen..." rows={2} className="input text-sm resize-none" />
+                <div className="flex gap-2">
+                  <button onClick={() => meetingTitle.trim() && saveMeeting.mutate()} disabled={saveMeeting.isPending || !meetingTitle.trim()} className="btn-primary text-sm flex-1">
+                    {saveMeeting.isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin mx-auto" /> : 'Speichern'}
+                  </button>
+                  <button onClick={resetMeetingForm} className="btn-ghost text-sm"><X className="w-3.5 h-3.5" /></button>
+                </div>
+              </div>
+            )}
+
+            {meetings.length === 0 && !showMeetingForm ? (
+              <p className="text-sm text-gray-500 text-center py-4">Noch keine Termine angelegt.</p>
+            ) : (
+              <div className="space-y-3">
+                {meetings.map(m => (
+                  <div key={m.id} className="rounded-lg border border-gray-700/50 bg-gray-800/60 p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold text-white">{m.title}</p>
+                          <span className="text-xs text-gray-400">
+                            {new Date(m.meetingDate).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          {m.transcriptSource !== 'none' && (
+                            <span className={`text-xs px-2 py-0.5 rounded-full ${m.transcriptSource === 'graph' ? 'bg-green-900/40 text-green-300' : 'bg-blue-900/40 text-blue-300'}`}>
+                              {m.transcriptSource === 'graph' ? '📥 Teams' : '✏️ Manuell'}
+                            </span>
+                          )}
+                          {m.extractionStatus === 'extracted' && (
+                            <span className="text-xs px-2 py-0.5 rounded-full bg-purple-900/40 text-purple-300">Analysiert</span>
+                          )}
+                        </div>
+                        {m.participants && <p className="text-xs text-gray-500 mt-1">👥 {m.participants}</p>}
+                        {m.location && <p className="text-xs text-gray-500">📍 {m.location}</p>}
+                        {m.teamsJoinUrl && (
+                          <a href={m.teamsJoinUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:text-blue-300 transition-colors">🔗 Teams-Link</a>
+                        )}
+                        {m.notes && <p className="text-xs text-gray-500 mt-1 italic">{m.notes}</p>}
+
+                        {/* Transcript & Extract actions */}
+                        <div className="flex flex-wrap gap-2 mt-3">
+                          {/* Manual transcript */}
+                          {transcriptInputId !== m.id && (
+                            <button onClick={() => { setTranscriptInputId(m.id); setTranscriptText(m.hasTranscript ? '' : '') }} className="text-xs px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 transition-colors">
+                              ✏️ Transkript {m.hasTranscript ? 'ersetzen' : 'eingeben'}
+                            </button>
+                          )}
+                          {/* Graph fetch */}
+                          {m.teamsOnlineMeetingId && graphTokenStatus?.hasValidToken && (
+                            <button
+                              onClick={() => fetchTranscript.mutate(m.id)}
+                              disabled={fetchTranscript.isPending}
+                              className="text-xs px-2 py-1 rounded bg-blue-900/40 hover:bg-blue-800/60 text-blue-300 transition-colors"
+                            >
+                              {fetchTranscript.isPending ? <Loader2 className="w-3 h-3 animate-spin inline" /> : '📥'} Von Teams laden
+                            </button>
+                          )}
+                          {/* Extract */}
+                          {m.hasTranscript && m.extractionStatus !== 'extracted' && (
+                            <button
+                              onClick={() => extractMeeting.mutate(m.id)}
+                              disabled={extractingMeetingId === m.id}
+                              className="text-xs px-2 py-1 rounded bg-purple-900/40 hover:bg-purple-800/60 text-purple-300 transition-colors"
+                            >
+                              {extractingMeetingId === m.id ? <Loader2 className="w-3 h-3 animate-spin inline" /> : <Mic className="w-3 h-3 inline" />} Analysieren
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Inline transcript input */}
+                        {transcriptInputId === m.id && (
+                          <div className="mt-3 space-y-2">
+                            <textarea
+                              value={transcriptText}
+                              onChange={e => setTranscriptText(e.target.value)}
+                              placeholder="Transkript einfügen (z.B. aus Teams, Word, o.Ä.)..."
+                              rows={5}
+                              className="input text-xs resize-none w-full"
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => transcriptText.trim() && addTranscript.mutate({ meetingId: m.id, text: transcriptText })}
+                                disabled={addTranscript.isPending || !transcriptText.trim()}
+                                className="btn-primary text-xs"
+                              >
+                                {addTranscript.isPending ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Speichern'}
+                              </button>
+                              <button onClick={() => { setTranscriptInputId(null); setTranscriptText('') }} className="btn-ghost text-xs"><X className="w-3 h-3" /></button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Extraction result summary */}
+                        {extractResult[m.id] && (
+                          <div className="mt-3 rounded bg-purple-900/20 border border-purple-700/30 p-3 text-xs text-purple-200">
+                            {extractResult[m.id].summary}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        <button onClick={() => openEditMeeting(m)} className="p-1 text-gray-500 hover:text-blue-400 transition-colors">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => deleteMeeting.mutate(m.id)} className="p-1 text-gray-500 hover:text-red-400 transition-colors">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="card p-5">
