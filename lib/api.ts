@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { AccessMatrix, Activity, AiLearningSummary, AiSuggestion, AiSuggestionFeedback, ApplyAiSuggestionResponse, AuditEntry, BulkSaveRequest, EntraIntegrationStatus, GovernanceOverview, GraphAuthStart, GraphIntegrationStatus, ImportAnalyzeResponse, ImportCommitResponse, JiraIntegrationStatus, JiraProjectTickets, MeetingAnalyzeResponse, MeetingCommitResponse, MyProjectDto, PortfolioBriefing, PortfolioEscalationOverview, PortfolioSummary, Project, ProjectAiAnswer, ProjectApproval, ProjectContact, ProjectDecision, ProjectDetail, ProjectDocument, ProjectForecast, ProjectForecastSnapshot, ProjectGovernanceCheck, ProjectJiraLink, ProjectKnowledgeHub, ProjectKnowledgeItem, ProjectLeadTask, ProjectMeeting, ProjectMilestone, ProjectNote, ProjectStageGate, ProjectStageGateCheck, ProjectTeamMember, ProjectTeamsLink, Risk, RiskSignal, SubmitTimeRequest, Task, TeamMember, TimeEntriesResponse, TimeEntryDashboardRow, TimeEntryNotificationDto, WeeklyStatus } from '@/types'
+import type { AccessMatrix, Activity, AiChatResponse, AiLearningSummary, AiSuggestion, AiSuggestionFeedback, ApplyAiSuggestionResponse, AuditEntry, BulkSaveRequest, CommandResult, DeadlinePrediction, EmailSummaryResult, EntraIntegrationStatus, GovernanceOverview, GraphAuthStart, GraphIntegrationStatus, GraphSubscriptionResult, ImportAnalyzeResponse, ImportCommitResponse, JiraIntegrationStatus, JiraProjectTickets, MeetingAgenda, MeetingAnalyzeResponse, MeetingCommitResponse, MyProjectDto, NlTaskResult, PortfolioBriefing, PortfolioEscalationOverview, PortfolioSummary, Project, ProjectAiAnswer, ProjectApproval, ProjectContact, ProjectDecision, ProjectDetail, ProjectDocument, ProjectForecast, ProjectForecastSnapshot, ProjectGovernanceCheck, ProjectJiraLink, ProjectKnowledgeHub, ProjectKnowledgeItem, ProjectLeadTask, ProjectMeeting, ProjectMilestone, ProjectNote, ProjectStageGate, ProjectStageGateCheck, ProjectTeamMember, ProjectTeamsLink, ResourceOptimizationResult, Risk, RiskSignal, SubmitTimeRequest, Task, TeamMember, TimeEntriesResponse, TimeEntryDashboardRow, TimeEntryNotificationDto, WebhookProcessResult, WeeklyStatus } from '@/types'
 
 interface LoginResponse {
   token: string
@@ -190,8 +190,8 @@ export const api = {
     getEscalations: () => get<PortfolioEscalationOverview>('/governance/escalations'),
   },
   ai: {
-    chat: (message: string, projectId?: string) =>
-      post<{ reply: string }>('/ai/chat', { message, projectId }),
+    chat: (message: string, projectId?: string, conversationId?: string) =>
+      post<AiChatResponse>('/ai/chat', { message, projectId, conversationId }),
     getSuggestions: (projectId?: string) =>
       get<AiSuggestion[]>('/ai/suggestions', { params: projectId ? { projectId } : undefined }),
     getWeeklyStatus: (projectId: string) =>
@@ -210,6 +210,24 @@ export const api = {
       post<ApplyAiSuggestionResponse>('/ai/apply-suggestion', data),
     askProjectQuestion: (projectId: string, question: string) =>
       post<ProjectAiAnswer>('/ai/project-question', { projectId, question }),
+    createFromText: (data: { text: string; projectId?: string; dryRun?: boolean }) =>
+      post<NlTaskResult>('/ai/create-from-text', data),
+    predictDeadline: (projectId: string) =>
+      get<DeadlinePrediction>(`/ai/deadline-prediction/${projectId}`),
+    getMeetingAgenda: (projectId: string) =>
+      get<MeetingAgenda>(`/ai/meeting-agenda/${projectId}`),
+    getResourceOptimization: (tenantId?: string) =>
+      get<ResourceOptimizationResult>('/ai/resource-optimization', { params: tenantId ? { tenantId } : undefined }),
+    summarizeEmail: (data: { emailThread: string; projectId?: string }) =>
+      post<EmailSummaryResult>('/ai/email-summary', data),
+    command: (input: string, projectId?: string) =>
+      post<CommandResult>('/ai/command', { input, projectId }),
+  },
+  webhooks: {
+    registerGraphSubscription: (tenantId: string) =>
+      post<GraphSubscriptionResult>('/webhooks/graph/subscribe', { tenantId }),
+    processManually: (data: { tenantId: string; teamsOnlineMeetingId: string }) =>
+      post<WebhookProcessResult>('/webhooks/graph/process-meeting', data),
   },
   integrations: {
     getGraphStatus: () => get<GraphIntegrationStatus>('/integrations/graph/status'),

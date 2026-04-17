@@ -39,6 +39,7 @@ import {
 import toast from 'react-hot-toast'
 import { api } from '@/lib/api'
 import { useAccessMatrix } from '@/lib/hooks/useAccessMatrix'
+import { AiCopilot } from '@/components/ai/AiCopilot'
 import type { Activity as ActivityItem, AuditEntry, ProjectContact, ProjectDetail, ProjectForecastSnapshot, ProjectMeeting, ProjectNote } from '@/types'
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -1402,6 +1403,8 @@ export default function ProjectDetailPage() {
           </div>
         </div>
       )}
+
+      <AiCopilot projectId={id} projectName={project?.name} />
     </div>
   )
 }

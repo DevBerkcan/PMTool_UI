@@ -736,3 +736,140 @@ export interface ProjectMeeting {
   createdAt: string
   hasTranscript: boolean
 }
+
+// ─── Command System types ─────────────────────────────────────────────────────
+
+export interface CommandAction {
+  label: string
+  actionType: 'navigate' | 'createTask' | 'openProject' | 'chat'
+  entityId?: string
+  projectId?: string
+  payload?: string
+}
+
+export interface CommandItem {
+  title: string
+  detail?: string
+  projectName?: string
+  assigneeName?: string
+  dueDate?: string
+  status?: string
+  priority?: string
+  score?: string
+  severity: 'ok' | 'warning' | 'critical' | 'info'
+  actions: CommandAction[]
+}
+
+export interface CommandSection {
+  title: string
+  icon: string
+  severity: 'ok' | 'warning' | 'critical' | 'info'
+  items: CommandItem[]
+}
+
+export interface CommandResult {
+  command: string
+  args: string
+  title: string
+  summary: string
+  severity: 'ok' | 'warning' | 'critical' | 'info'
+  sections: CommandSection[]
+  suggestedActions: CommandAction[]
+  generatedAt: string
+}
+
+// ─── AI / LLM types ──────────────────────────────────────────────────────────
+
+export interface AiAnswerSource {
+  entityType: string
+  entityId: string
+  snippet: string
+  score: number
+  createdAt: string
+}
+
+export interface AiChatResponse {
+  reply: string
+  conversationId: string
+  sources: AiAnswerSource[]
+}
+
+export interface NlTaskResult {
+  success: boolean
+  taskId?: string
+  title?: string
+  description?: string
+  assigneeName?: string
+  priority?: string
+  dueDate?: string
+  dryRun: boolean
+  message?: string
+}
+
+export interface DeadlinePrediction {
+  projectId: string
+  projectName: string
+  plannedEndDate?: string
+  predictedEndDate?: string
+  confidence: number
+  velocityTasksPerWeek: number
+  remainingTasks: number
+  estimatedWeeksRemaining: number
+  reasoning: string
+  isOnTrack: boolean
+}
+
+export interface MeetingAgendaItem {
+  title: string
+  durationMinutes: number
+  type: string
+  description: string
+  priority: string
+}
+
+export interface MeetingAgenda {
+  projectName: string
+  meetingDate: string
+  totalDurationMinutes: number
+  items: MeetingAgendaItem[]
+  generatedBy: string
+}
+
+export interface ResourceOptimizationSuggestion {
+  userId: string
+  userName: string
+  currentAllocationPercent: number
+  suggestedAllocationPercent: number
+  reasoning: string
+  priority: string
+}
+
+export interface ResourceOptimizationResult {
+  suggestions: ResourceOptimizationSuggestion[]
+  summary: string
+  generatedAt: string
+}
+
+export interface EmailSummaryResult {
+  summary: string
+  keyDecisions: string[]
+  actionItems: string[]
+  suggestedReply: string
+  detectedProjectId?: string
+  detectedProjectName?: string
+}
+
+export interface GraphSubscriptionResult {
+  subscriptionId: string
+  expirationDateTime: string
+  status: string
+}
+
+export interface WebhookProcessResult {
+  success: boolean
+  projectName?: string
+  tasksCreated: number
+  decisionsCreated: number
+  risksCreated: number
+  error?: string
+}
