@@ -135,9 +135,10 @@ export default function ProjectDetailPage() {
   const [jiraJqlFilter, setJiraJqlFilter] = useState('')
   const [jiraSyncStatus, setJiraSyncStatus] = useState('planned')
 
-  const { data: project, isLoading } = useQuery<ProjectDetail>({
+  const { data: project, isError: projectIsError, error: projectError, isLoading } = useQuery<ProjectDetail>({
     queryKey: ['project', id],
     queryFn: () => api.projects.getById(id),
+    enabled: !!id,
   })
 
   const { data: tasks = [] } = useQuery({
@@ -576,8 +577,36 @@ export default function ProjectDetailPage() {
     setJiraSyncStatus(project.jiraLink.syncStatus)
   }, [project?.jiraLink])
 
-  if (isLoading || !project) {
+  if (isLoading) {
     return <div className="card p-6 flex items-center justify-center text-gray-400"><Loader2 className="w-4 h-4 animate-spin mr-2" /> Projekt wird geladen...</div>
+  }
+
+  if (projectIsError || !project) {
+    return (
+      <div className="card p-6">
+        <div className="flex items-start gap-3">
+          <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-400" />
+          <div className="min-w-0 flex-1">
+            <h2 className="text-base font-semibold text-white">Projekt konnte nicht geladen werden</h2>
+            <p className="mt-1 text-sm text-gray-400">
+              {projectError instanceof Error ? projectError.message : 'Die Projekt-API hat keine Daten geliefert.'}
+            </p>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => qc.invalidateQueries({ queryKey: ['project', id] })}
+                className="btn-primary"
+              >
+                Erneut laden
+              </button>
+              <Link href="/" className="btn-secondary">
+                Zurueck zum Portfolio
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   const openTasks = tasks.filter(task => task.status !== 'done')

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { motion } from 'framer-motion'
-import { Settings, User, Bell, Shield, Palette, Save, CheckCircle, PlugZap, ExternalLink, Loader2 } from 'lucide-react'
+import { Settings, User, Bell, Shield, Palette, Save, CheckCircle, PlugZap, ExternalLink, Loader2, Video, Link2, AlertCircle } from 'lucide-react'
 import { useAccessMatrix } from '@/lib/hooks/useAccessMatrix'
 import { useAuthStore } from '@/lib/store/authStore'
 import toast from 'react-hot-toast'
@@ -40,6 +40,10 @@ export default function SettingsPage() {
   const { data: graphStatus } = useQuery({
     queryKey: ['graph-status'],
     queryFn: () => api.integrations.getGraphStatus(),
+  })
+  const { data: graphTokenStatus } = useQuery({
+    queryKey: ['graph-token-status'],
+    queryFn: () => api.integrations.getGraphTokenStatus(),
   })
   const { data: entraStatus } = useQuery({
     queryKey: ['entra-status'],
@@ -291,36 +295,84 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              <h2 className="font-semibold text-white mb-4">Microsoft Graph / Teams</h2>
-              <div className={`rounded-xl border p-4 ${graphStatus?.isConfigured ? 'border-emerald-800/50 bg-emerald-950/30' : 'border-amber-800/50 bg-amber-950/20'}`}>
-                <p className="text-sm font-medium text-white">{graphStatus?.isConfigured ? 'Graph ist vorbereitet' : 'Graph ist noch nicht konfiguriert'}</p>
-                <p className="text-xs text-gray-400 mt-1">{graphStatus?.setupHint}</p>
-              </div>
-              <div className="rounded-xl bg-gray-800/60 p-4">
-                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-white">OAuth-Startpfad</p>
-                    <p className="text-xs text-gray-400 mt-1">
-                      Nach dem Klick oeffnet sich der Microsoft-Consent-Screen. Die Redirect URI muss in Azure exakt mit diesem Wert hinterlegt sein.
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => graphAuthStartMutation.mutate()}
-                    disabled={!graphStatus?.isConfigured || graphAuthStartMutation.isPending}
-                    className="btn-primary disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {graphAuthStartMutation.isPending ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" /> Starte OAuth
-                      </>
-                    ) : (
-                      <>
-                        <ExternalLink className="w-4 h-4" /> Microsoft Login starten
-                      </>
-                    )}
-                  </button>
+              <h2 className="font-semibold text-white mb-1 flex items-center gap-2">
+                <Video className="w-4 h-4 text-blue-400" /> Microsoft Teams / Graph
+              </h2>
+              <p className="text-xs text-gray-500 mb-4">Verbinde Teams, um Transkripte automatisch abzurufen und Meetings direkt zu analysieren.</p>
+
+              {/* Connection status */}
+              <div className={`rounded-xl border p-4 flex items-start gap-3 ${graphTokenStatus?.hasValidToken ? 'border-emerald-800/50 bg-emerald-950/30' : graphStatus?.isConfigured ? 'border-blue-800/50 bg-blue-950/20' : 'border-amber-800/50 bg-amber-950/20'}`}>
+                {graphTokenStatus?.hasValidToken
+                  ? <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0 mt-0.5" />
+                  : graphStatus?.isConfigured
+                    ? <Link2 className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+                    : <AlertCircle className="w-5 h-5 text-amber-400 flex-shrink-0 mt-0.5" />}
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-white">
+                    {graphTokenStatus?.hasValidToken
+                      ? 'Microsoft Teams ist verbunden'
+                      : graphStatus?.isConfigured
+                        ? 'App konfiguriert – Login ausstehend'
+                        : 'Noch nicht eingerichtet'}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {graphTokenStatus?.hasValidToken
+                      ? `Token gültig bis ${graphTokenStatus.expiresAt ? new Date(graphTokenStatus.expiresAt).toLocaleString('de-DE') : '–'}`
+                      : graphStatus?.setupHint}
+                  </p>
                 </div>
+                {graphStatus?.isConfigured && (
+                  <button onClick={() => graphAuthStartMutation.mutate()} disabled={graphAuthStartMutation.isPending}
+                    className="btn-primary text-sm flex items-center gap-1.5 flex-shrink-0 disabled:opacity-50">
+                    {graphAuthStartMutation.isPending
+                      ? <Loader2 className="w-4 h-4 animate-spin" />
+                      : <ExternalLink className="w-4 h-4" />}
+                    {graphTokenStatus?.hasValidToken ? 'Neu verbinden' : 'Microsoft Login'}
+                  </button>
+                )}
               </div>
+
+              {/* Step-by-step setup guide */}
+              {!graphStatus?.isConfigured && (
+                <div className="rounded-xl border border-gray-700 bg-gray-800/40 p-4 space-y-3">
+                  <p className="text-sm font-semibold text-white">Setup in 4 Schritten</p>
+                  {[
+                    {
+                      step: 1, title: 'Azure App Registration erstellen',
+                      desc: 'portal.azure.com → Microsoft Entra ID → App-Registrierungen → Neue Registrierung',
+                      link: 'https://portal.azure.com/#view/Microsoft_AAD_RegisteredApps/ApplicationsListBlade',
+                      linkLabel: 'Azure Portal öffnen',
+                    },
+                    {
+                      step: 2, title: 'API-Berechtigungen hinzufügen',
+                      desc: 'In der App: API-Berechtigungen → Hinzufügen → Microsoft Graph → Delegiert: OnlineMeetings.Read + OnlineMeetingTranscript.Read.All + User.Read',
+                    },
+                    {
+                      step: 3, title: 'Redirect-URI eintragen',
+                      desc: `Authentifizierung → Plattform hinzufügen → Web → Redirect-URI: ${graphStatus?.redirectUri || 'http://localhost:5000/api/v1/integrations/graph/auth/callback'}`,
+                    },
+                    {
+                      step: 4, title: 'Werte in appsettings.json eintragen',
+                      desc: 'ClientId, TenantId, ClientSecret (unter Zertifikate & Geheimnisse erstellen) und RedirectUri in die Backend-Konfiguration eintragen.',
+                    },
+                  ].map(({ step, title, desc, link, linkLabel }) => (
+                    <div key={step} className="flex gap-3">
+                      <div className="w-6 h-6 rounded-full bg-blue-600/20 border border-blue-500/30 flex items-center justify-center text-xs font-bold text-blue-400 flex-shrink-0 mt-0.5">{step}</div>
+                      <div className="flex-1">
+                        <p className="text-sm font-medium text-white">{title}</p>
+                        <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
+                        {link && (
+                          <a href={link} target="_blank" rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-xs text-blue-400 hover:text-blue-300 mt-1">
+                            <ExternalLink className="w-3 h-3" />{linkLabel}
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               <div className="grid md:grid-cols-2 gap-4 text-sm">
                 <div className="rounded-lg bg-gray-800/60 p-4">
                   <p className="text-xs text-gray-500 mb-1">Client ID</p>
@@ -335,17 +387,13 @@ export default function SettingsPage() {
                   <p className="text-white break-all">{graphStatus?.redirectUri || 'Nicht gesetzt'}</p>
                 </div>
                 <div className="rounded-lg bg-gray-800/60 p-4 md:col-span-2">
-                  <p className="text-xs text-gray-500 mb-2">Scopes</p>
+                  <p className="text-xs text-gray-500 mb-2">Benötigte Scopes</p>
                   <div className="flex flex-wrap gap-2">
-                    {graphStatus?.scopes.map(scope => <span key={scope} className="rounded-full bg-blue-600/10 px-2 py-1 text-xs text-blue-200">{scope}</span>)}
+                    {(graphStatus?.scopes ?? ['OnlineMeetings.Read', 'OnlineMeetingTranscript.Read.All', 'User.Read']).map(scope => (
+                      <span key={scope} className="rounded-full bg-blue-600/10 px-2 py-1 text-xs text-blue-200">{scope}</span>
+                    ))}
                   </div>
                 </div>
-              </div>
-              <div className="rounded-xl border border-blue-900/40 bg-blue-950/20 p-4">
-                <p className="text-sm font-medium text-white">Azure App Registration</p>
-                <p className="text-xs text-gray-400 mt-1">
-                  Trage in Azure dieselbe Redirect URI ein und hinterlege danach `ClientId`, `TenantId`, `ClientSecret` und `RedirectUri` in der Backend-Konfiguration.
-                </p>
               </div>
               <div className={`rounded-xl border p-4 ${jiraStatus?.isConfigured ? 'border-emerald-800/50 bg-emerald-950/30' : 'border-amber-800/50 bg-amber-950/20'}`}>
                 <p className="text-sm font-medium text-white">{jiraStatus?.isConfigured ? 'Jira ist vorbereitet' : 'Jira ist noch nicht konfiguriert'}</p>

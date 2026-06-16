@@ -737,6 +737,33 @@ export interface ProjectMeeting {
   hasTranscript: boolean
 }
 
+export interface GlobalMeeting {
+  id: string
+  projectId: string
+  projectName: string
+  title: string
+  meetingDate: string
+  participants: string
+  location: string
+  extractionStatus: 'none' | 'pending' | 'extracted'
+  hasTranscript: boolean
+  notes: string
+  createdByName: string
+  createdAt: string
+  extractedTasksCount?: number | null
+  extractedDecisionsCount?: number | null
+  summary: string
+  teamsOnlineMeetingId: string
+}
+
+export interface MeetingExtractResult {
+  createdTasks: number
+  createdDecisions: number
+  createdRisks: number
+  createdKnowledgeItems: number
+  summary: string
+}
+
 // ─── Command System types ─────────────────────────────────────────────────────
 
 export interface CommandAction {

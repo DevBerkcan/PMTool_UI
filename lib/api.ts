@@ -1,5 +1,5 @@
 import axios from 'axios'
-import type { AccessMatrix, Activity, AiChatResponse, AiLearningSummary, AiSuggestion, AiSuggestionFeedback, ApplyAiSuggestionResponse, AuditEntry, BulkSaveRequest, CommandResult, DeadlinePrediction, EmailSummaryResult, EntraIntegrationStatus, GovernanceOverview, GraphAuthStart, GraphIntegrationStatus, GraphSubscriptionResult, ImportAnalyzeResponse, ImportCommitResponse, JiraIntegrationStatus, JiraProjectTickets, MeetingAgenda, MeetingAnalyzeResponse, MeetingCommitResponse, MyProjectDto, NlTaskResult, PortfolioBriefing, PortfolioEscalationOverview, PortfolioSummary, Project, ProjectAiAnswer, ProjectApproval, ProjectContact, ProjectDecision, ProjectDetail, ProjectDocument, ProjectForecast, ProjectForecastSnapshot, ProjectGovernanceCheck, ProjectJiraLink, ProjectKnowledgeHub, ProjectKnowledgeItem, ProjectLeadTask, ProjectMeeting, ProjectMilestone, ProjectNote, ProjectStageGate, ProjectStageGateCheck, ProjectTeamMember, ProjectTeamsLink, ResourceOptimizationResult, Risk, RiskSignal, SubmitTimeRequest, Task, TeamMember, TimeEntriesResponse, TimeEntryDashboardRow, TimeEntryNotificationDto, WebhookProcessResult, WeeklyStatus } from '@/types'
+import type { AccessMatrix, Activity, AiChatResponse, AiLearningSummary, AiSuggestion, AiSuggestionFeedback, ApplyAiSuggestionResponse, AuditEntry, BulkSaveRequest, CommandResult, DeadlinePrediction, EmailSummaryResult, EntraIntegrationStatus, GlobalMeeting, GovernanceOverview, GraphAuthStart, GraphIntegrationStatus, GraphSubscriptionResult, ImportAnalyzeResponse, ImportCommitResponse, JiraIntegrationStatus, JiraProjectTickets, MeetingAgenda, MeetingAnalyzeResponse, MeetingCommitResponse, MyProjectDto, NlTaskResult, PortfolioBriefing, PortfolioEscalationOverview, PortfolioSummary, Project, ProjectAiAnswer, ProjectApproval, ProjectContact, ProjectDecision, ProjectDetail, ProjectDocument, ProjectForecast, ProjectForecastSnapshot, ProjectGovernanceCheck, ProjectJiraLink, ProjectKnowledgeHub, ProjectKnowledgeItem, ProjectLeadTask, ProjectMeeting, ProjectMilestone, ProjectNote, ProjectStageGate, ProjectStageGateCheck, ProjectTeamMember, ProjectTeamsLink, ResourceOptimizationResult, Risk, RiskSignal, SubmitTimeRequest, Task, TeamMember, TimeEntriesResponse, TimeEntryDashboardRow, TimeEntryNotificationDto, WebhookProcessResult, WeeklyStatus } from '@/types'
 
 interface LoginResponse {
   token: string
@@ -143,6 +143,15 @@ export const api = {
       post<ProjectMeeting>(`/projects/${id}/meetings/${meetingId}/transcript/fetch`, {}),
     extractMeeting: (id: string, meetingId: string) =>
       post<{ createdTasks: number; createdDecisions: number; createdRisks: number; createdKnowledgeItems: number; summary: string }>(`/projects/${id}/meetings/${meetingId}/extract`, {}),
+  },
+  globalMeetings: {
+    getAll: (params?: { projectId?: string; status?: string }) => {
+      const q = new URLSearchParams()
+      if (params?.projectId) q.set('projectId', params.projectId)
+      if (params?.status) q.set('status', params.status)
+      const qs = q.toString()
+      return get<GlobalMeeting[]>(`/meetings${qs ? '?' + qs : ''}`)
+    },
   },
   tasks: {
     getByProject: (pid: string) => get<Task[]>(`/projects/${pid}/tasks`),

@@ -18,6 +18,7 @@ import {
   Upload,
   History,
   Clock,
+  Video,
 } from 'lucide-react'
 import { useAuthStore } from '@/lib/store/authStore'
 import { useAccessMatrix } from '@/lib/hooks/useAccessMatrix'
@@ -60,6 +61,7 @@ export function Sidebar() {
     { href: '/resources', icon: Users, label: 'Ressourcen', section: 'main', visible: true },
     { href: '/team', icon: FolderKanban, label: 'Team', section: 'main', visible: can('manageTeam') },
     { href: '/governance', icon: ShieldCheck, label: 'Governance', section: 'main', visible: can('managePmo') },
+    { href: '/meetings', icon: Video, label: 'Meetings', section: 'main', visible: true },
     { href: '/imports', icon: Upload, label: 'Import Center', section: 'main', visible: true },
     { href: '/audit', icon: History, label: 'Audit', section: 'tools', visible: can('managePmo') },
     { href: '/ai', icon: Brain, label: 'AI Assistant', section: 'tools', visible: true },
